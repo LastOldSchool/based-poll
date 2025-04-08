@@ -4,7 +4,7 @@ import {
 } from "@nomicfoundation/hardhat-toolbox-viem/network-helpers";
 import { expect } from "chai";
 import hre from "hardhat";
-import { getAddress, keccak256, toBytes, stringToHex, encodeAbiParameters, parseAbiParameters } from "viem";
+import { keccak256, stringToHex, encodeAbiParameters, parseAbiParameters } from "viem";
 
 describe("Poll Contract", function () {
   // Deploy fixture to reuse in tests
@@ -59,7 +59,7 @@ describe("Poll Contract", function () {
 
       // Create poll
       const tx = await poll.write.createPoll([prePollId, optionCount, deadline]);
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: tx });
+      await publicClient.waitForTransactionReceipt({ hash: tx });
 
       // Get the actual poll ID calculated by the contract
       const actualPollId = await poll.read.calculateActualPollId([prePollId, optionCount, deadline]);
@@ -75,7 +75,7 @@ describe("Poll Contract", function () {
       expect(pollData[0]).to.equal(deadline); // deadline
       expect(pollData[1]).to.deep.equal([0n, 0n, 0n]); // voteCounts (all zero)
       expect(pollData[2]).to.equal(optionCount); // optionCount
-      expect(pollData[3]).to.be.true; // exists
+      expect(pollData[3]).to.equal(true); // exists
       
       // Can also get poll data using parameters
       const pollDataByParams = await poll.read.getPollByParams([prePollId, optionCount, deadline]);
@@ -181,7 +181,7 @@ describe("Poll Contract", function () {
       expect(pollData[0]).to.equal(deadline);
       expect(pollData[1]).to.deep.equal([0n, 0n, 0n]); // No votes yet
       expect(pollData[2]).to.equal(optionCount);
-      expect(pollData[3]).to.be.true; // exists
+      expect(pollData[3]).to.equal(true); // exists
       
       // Vote as voter1 for option 1
       const pollAsVoter1 = await hre.viem.getContractAt("Poll", poll.address, {
@@ -215,18 +215,18 @@ describe("Poll Contract", function () {
       
       // Verify individual votes
       const voter1Vote = await poll.read.checkVote([actualPollId, voter1.account.address]);
-      expect(voter1Vote[0]).to.be.true; // hasVoted
+      expect(voter1Vote[0]).to.equal(true); // hasVoted
       expect(voter1Vote[1]).to.equal(1); // voted for option 1
       
       const voter2Vote = await poll.read.checkVote([actualPollId, voter2.account.address]);
-      expect(voter2Vote[0]).to.be.true; // hasVoted
+      expect(voter2Vote[0]).to.equal(true); // hasVoted
       expect(voter2Vote[1]).to.equal(2); // voted for option 2
       
       // Fast forward time past deadline
       await time.increase(2000);
       
       // Verify poll has ended
-      expect(await poll.read.isPollEnded([actualPollId])).to.be.true;
+      expect(await poll.read.isPollEnded([actualPollId])).to.equal(true);
       
       // Try to vote again after deadline
       await expect(
@@ -256,7 +256,7 @@ describe("Poll Contract", function () {
 
       // Verify poll doesn't exist yet
       const initialPollData = await poll.read.getPoll([actualPollId]);
-      expect(initialPollData[3]).to.be.false; // exists should be false
+      expect(initialPollData[3]).to.equal(false); // exists should be false
 
       // Vote as voter1, which should create the poll
       const optionId = 1; // Vote for "Yes"
@@ -274,7 +274,7 @@ describe("Poll Contract", function () {
 
       // Verify poll was created
       const pollData = await poll.read.getPoll([actualPollId]);
-      expect(pollData[3]).to.be.true; // exists should be true
+      expect(pollData[3]).to.equal(true); // exists should be true
       expect(pollData[0]).to.equal(deadline);
       expect(pollData[2]).to.equal(optionCount);
 
@@ -420,7 +420,7 @@ describe("Poll Contract", function () {
       const actualPollId = await poll.read.calculateActualPollId([prePollId, optionCount, deadline]);
 
       // Check if poll has ended (should be false)
-      expect(await poll.read.isPollEnded([actualPollId])).to.be.false;
+      expect(await poll.read.isPollEnded([actualPollId])).to.equal(false);
 
       // Vote as voter1
       const pollAsVoter1 = await hre.viem.getContractAt("Poll", poll.address, {
@@ -453,18 +453,18 @@ describe("Poll Contract", function () {
 
       // Check individual votes
       let voteInfo = await poll.read.checkVote([actualPollId, voter1.account.address]);
-      expect(voteInfo[0]).to.be.true;
+      expect(voteInfo[0]).to.equal(true);
       expect(voteInfo[1]).to.equal(1);
 
       voteInfo = await poll.read.checkVote([actualPollId, voter2.account.address]);
-      expect(voteInfo[0]).to.be.true;
+      expect(voteInfo[0]).to.equal(true);
       expect(voteInfo[1]).to.equal(2);
 
       // Fast forward time past the deadline
       await time.increase(200);
 
       // Check if poll has ended (should be true)
-      expect(await poll.read.isPollEnded([actualPollId])).to.be.true;
+      expect(await poll.read.isPollEnded([actualPollId])).to.equal(true);
     });
 
     it("Should correctly handle non-existent polls", async function () {
@@ -475,12 +475,12 @@ describe("Poll Contract", function () {
       
       // Check poll data
       const pollData = await poll.read.getPoll([nonExistentPollId]);
-      expect(pollData[3]).to.be.false; // exists should be false
+      expect(pollData[3]).to.equal(false); // exists should be false
       expect(pollData[0]).to.equal(0n); // zero deadline
-      expect(pollData[1]).to.be.empty; // empty voteCounts array
+      expect(pollData[1].length).to.equal(0); // empty voteCounts array
       
       // Check if poll has ended (should be false for non-existent poll)
-      expect(await poll.read.isPollEnded([nonExistentPollId])).to.be.false;
+      expect(await poll.read.isPollEnded([nonExistentPollId])).to.equal(false);
     });
     
     it("Should query poll information using both direct ID and parameters", async function () {
@@ -528,14 +528,14 @@ describe("Poll Contract", function () {
 
       // Create poll and verify it exists
       const createTx = await poll.write.createPoll([prePollId, optionCount, deadline]);
-      const createReceipt = await publicClient.waitForTransactionReceipt({ hash: createTx });
+      await publicClient.waitForTransactionReceipt({ hash: createTx });
 
       // Get actual poll ID
       const actualPollId = await poll.read.calculateActualPollId([prePollId, optionCount, deadline]);
       
       // Verify poll exists
       const pollData = await poll.read.getPoll([actualPollId]);
-      expect(pollData[3]).to.be.true;
+      expect(pollData[3]).to.equal(true);
       
       // Vote and verify vote count changes
       const pollAsVoter1 = await hre.viem.getContractAt("Poll", poll.address, {
@@ -548,7 +548,7 @@ describe("Poll Contract", function () {
         optionCount,
         deadline,
       ]);
-      const voteReceipt = await publicClient.waitForTransactionReceipt({ hash: voteTx });
+      await publicClient.waitForTransactionReceipt({ hash: voteTx });
       
       // Verify vote was counted
       const updatedPollData = await poll.read.getPoll([actualPollId]);
@@ -556,7 +556,7 @@ describe("Poll Contract", function () {
       
       // Verify voter's vote was recorded
       const voteInfo = await poll.read.checkVote([actualPollId, voter1.account.address]);
-      expect(voteInfo[0]).to.be.true; // hasVoted
+      expect(voteInfo[0]).to.equal(true); // hasVoted
       expect(voteInfo[1]).to.equal(1); // voted for option 1
     });
   });
