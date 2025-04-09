@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePoll } from "../../hooks/usePoll";
 import { useAccount } from "wagmi";
+import ReownConnect from "../../components/ReownConnect";
 
 interface Option {
   id: number;
@@ -115,9 +116,12 @@ export default function CreatePollForm() {
     return (
       <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
         <h2 className="text-xl md:text-2xl font-bold mb-4">Create a Poll</h2>
-        <p className="text-gray-500 dark:text-gray-400 mb-4">
+        <p className="text-gray-500 dark:text-gray-400 mb-6">
           Connect your wallet to create a new poll.
         </p>
+        <div className="flex justify-center">
+          <ReownConnect />
+        </div>
       </div>
     );
   }
