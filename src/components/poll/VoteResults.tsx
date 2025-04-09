@@ -1,8 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { cn } from "../../lib/utils";
 import { Poll } from "../../utils/types";
+import VotersModal from "./VotersModal";
+import { Users } from "lucide-react";
 
 interface VoteResultsProps {
   poll: Poll;
@@ -18,6 +20,19 @@ interface VoteResultsProps {
  */
 export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsProps) {
   const totalVotes = poll.voteCounts.reduce((sum, count) => sum + count, 0);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // Open the voters modal for a specific option
+  const handleShowVoters = (optionId: number) => {
+    setSelectedOption(optionId);
+    setModalOpen(true);
+  };
+
+  // Close the voters modal
+  const handleCloseModal = () => {
+    setModalOpen(false);
+  };
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -32,6 +47,7 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
         // The option index is 0-based but userVoteOptionId is 1-based
         // So we need to check if userVoteOptionId equals index+1
         const isUserVote = userVoteOptionId === index + 1;
+        const optionId = index + 1; // 1-based option ID
         
         return (
           <div 
@@ -59,22 +75,38 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
                   )}
                 </span>
               </div>
-              <div className="text-sm text-gray-500">
-                {voteCount} · {percentage}%
+              <div className="flex items-center space-x-2">
+                <div className="text-sm text-gray-500">
+                  {voteCount} · {percentage}%
+                </div>
+                {voteCount > 0 && (
+                  <button
+                    onClick={() => handleShowVoters(optionId)}
+                    className="flex items-center justify-center p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    aria-label="Show voters"
+                    title="Show voters"
+                  >
+                    <Users size={16} className="text-gray-500" />
+                  </button>
+                )}
               </div>
             </div>
             
             {/* Pure inline style progress bar */}
-            <div style={{ 
-              height: '8px', 
-              width: '100%', 
-              backgroundColor: '#E5E7EB', 
-              borderRadius: '4px',
-              marginTop: '4px',
-              marginBottom: '4px',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
+            <div 
+              style={{ 
+                height: '8px', 
+                width: '100%', 
+                backgroundColor: '#E5E7EB', 
+                borderRadius: '4px',
+                marginTop: '4px',
+                marginBottom: '4px',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+              onClick={() => voteCount > 0 && handleShowVoters(optionId)}
+              className={voteCount > 0 ? "cursor-pointer" : ""}
+            >
               {voteCount > 0 && (
                 <div style={{
                   position: 'absolute',
@@ -92,6 +124,17 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
           </div>
         );
       })}
+
+      {/* Voters Modal */}
+      {selectedOption !== null && (
+        <VotersModal
+          pollId={poll.id}
+          optionId={selectedOption}
+          optionText={selectedOption <= poll.options.length ? poll.options[selectedOption - 1] : ''}
+          isOpen={modalOpen}
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   );
 }

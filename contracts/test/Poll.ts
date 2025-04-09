@@ -4,7 +4,11 @@ import {
 } from "@nomicfoundation/hardhat-toolbox-viem/network-helpers";
 import { expect } from "chai";
 import hre from "hardhat";
-import { keccak256, stringToHex, encodeAbiParameters, parseAbiParameters } from "viem";
+import { 
+  generatePrePollId, 
+  calculateActualPollId, 
+  getVotersForOption 
+} from "./helpers/poll-helpers";
 
 describe("Poll Contract", function () {
   // Deploy fixture to reuse in tests
@@ -24,23 +28,6 @@ describe("Poll Contract", function () {
       voter3,
       publicClient,
     };
-  }
-
-  // Helper function to generate pre-poll ID (used off-chain in real scenario)
-  async function generatePrePollId(question: string, options: string[]): Promise<`0x${string}`> {
-    // In a real application, this would be done off-chain, but we need it for testing
-    return keccak256(stringToHex(`${question}:${options.join('|')}`));
-  }
-
-  // Helper function to calculate the actual poll ID (as done in the contract)
-  async function calculateActualPollId(prePollId: `0x${string}`, optionCount: number, deadline: bigint): Promise<`0x${string}`> {
-    // This should match the contract's calculateActualPollId function which uses abi.encode
-    return keccak256(
-      encodeAbiParameters(
-        parseAbiParameters("bytes32, uint8, uint256"),
-        [prePollId, optionCount, deadline]
-      )
-    );
   }
 
   describe("Poll Creation", function () {
@@ -558,6 +545,120 @@ describe("Poll Contract", function () {
       const voteInfo = await poll.read.checkVote([actualPollId, voter1.account.address]);
       expect(voteInfo[0]).to.equal(true); // hasVoted
       expect(voteInfo[1]).to.equal(1); // voted for option 1
+    });
+  });
+
+  describe("Multiple Voters Test", function () {
+    it("Should correctly track 20 voters across 4 poll options", async function () {
+      // Deploy a new poll contract
+      const poll = await hre.viem.deployContract("Poll");
+      const publicClient = await hre.viem.getPublicClient();
+      
+      // Get test accounts from hardhat
+      const allAccounts = await hre.viem.getWalletClients();
+      
+      // Keep track of which accounts have already voted
+      const usedVoterAddresses = new Set<string>();
+      
+      // Poll data
+      const question = "Which blockchain is best?";
+      const options = ["Ethereum", "Base", "Optimism", "Arbitrum"];
+      const optionCount = options.length; // 4 options
+      const deadline = BigInt(await time.latest()) + 1000n;
+      
+      // Generate pre-poll ID
+      const prePollId = await generatePrePollId(question, options);
+      
+      // Create poll
+      const createTx = await poll.write.createPoll([prePollId, optionCount, deadline]);
+      await publicClient.waitForTransactionReceipt({ hash: createTx });
+      
+      // Get actual poll ID
+      const actualPollId = await poll.read.calculateActualPollId([prePollId, optionCount, deadline]);
+      
+      // Keep track of which voters voted for which option
+      const votersByOption: Record<number, `0x${string}`[]> = {
+        1: [], // Ethereum voters
+        2: [], // Base voters
+        3: [], // Optimism voters
+        4: [], // Arbitrum voters
+      };
+      
+      // Prepare an array for target votes per option (adjust based on accounts available)
+      const targetVotesPerOption = [2, 2, 2, 2]; // 2 votes each for 4 options
+      
+      // Distribute votes across options
+      for (let optionId = 1; optionId <= 4; optionId++) {
+        const targetVotes = targetVotesPerOption[optionId - 1];
+        let votesAdded = 0;
+        
+        for (let accountIndex = 1; accountIndex < allAccounts.length && votesAdded < targetVotes; accountIndex++) {
+          const voter = allAccounts[accountIndex];
+          const voterAddress = voter.account.address;
+          
+          // Skip if this account has already voted
+          if (usedVoterAddresses.has(voterAddress)) continue;
+          
+          // Mark this account as used
+          usedVoterAddresses.add(voterAddress);
+          
+          // Cast vote
+          const pollAsVoter = await hre.viem.getContractAt("Poll", poll.address, {
+            client: { wallet: voter },
+          });
+          
+          const voteTx = await pollAsVoter.write.vote([
+            prePollId,
+            optionId,
+            optionCount,
+            deadline,
+          ]);
+          await publicClient.waitForTransactionReceipt({ hash: voteTx });
+          
+          // Track the voter for this option
+          votersByOption[optionId].push(voterAddress);
+          votesAdded++;
+        }
+      }
+      
+      // Count total votes across all options
+      const totalVotes = Object.values(votersByOption).reduce(
+        (sum, voters) => sum + voters.length, 
+        0
+      );
+      
+      // Verify vote counts
+      const pollData = await poll.read.getPoll([actualPollId]);
+      
+      // Verify each option has the expected vote count
+      for (let optionId = 1; optionId <= 4; optionId++) {
+        const expectedVotes = votersByOption[optionId].length;
+        expect(pollData[1][optionId - 1]).to.equal(BigInt(expectedVotes));
+      }
+      
+      // Get voters for each option using the helper function
+      for (let optionId = 1; optionId <= 4; optionId++) {
+        const fetchedVoters = await getVotersForOption(
+          publicClient,
+          poll.address,
+          actualPollId,
+          optionId
+        );
+        
+        // Sort both arrays to ensure consistent comparison
+        const expectedVoters = [...votersByOption[optionId]].sort();
+        const actualVoters = [...fetchedVoters].sort();
+        
+        // Verify that the helper function returns the correct voters
+        expect(actualVoters.length).to.equal(expectedVoters.length);
+        
+        for (let i = 0; i < expectedVoters.length; i++) {
+          expect(actualVoters[i].toLowerCase()).to.equal(expectedVoters[i].toLowerCase());
+        }
+        
+        // Additional check: The number of voters should match the vote count
+        expect(fetchedVoters.length).to.equal(Number(pollData[1][optionId - 1]));
+      }
     });
   });
 }); 

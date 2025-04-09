@@ -171,6 +171,27 @@ export function getAllVotesForPoll(pollId: string): StoredVote[] {
 }
 
 /**
+ * Get all wallet addresses that voted for a specific option in a poll
+ * @param pollId - The ID of the poll
+ * @param optionId - The ID of the option to get voters for
+ * @returns Array of wallet addresses that voted for this option
+ */
+export function getUserVotesForOption(pollId: string, optionId: number): string[] {
+  try {
+    const allVotes = getAllVotesForPoll(pollId);
+    
+    // Filter votes to only include those for the specified option and return their wallet addresses
+    return allVotes
+      .filter(vote => vote.optionId === optionId && vote.walletAddress)
+      .map(vote => vote.walletAddress)
+      .filter((address): address is string => address !== null && address !== undefined);
+  } catch (error) {
+    console.error("Error getting user votes for option:", error);
+    return [];
+  }
+}
+
+/**
  * Clear all localStorage data
  */
 export function clearLocalStorage(): void {
