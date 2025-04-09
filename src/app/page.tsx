@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import WalletConnect from "../components/WalletConnect";
 import CreatePollForm from "../components/poll/CreatePollForm";
 import PollCard from "../components/poll/PollCard";
@@ -16,6 +16,18 @@ export default function Home() {
   const [userPolls, setUserPolls] = useState<StoredPoll[]>([]);
   const [selectedPollId, setSelectedPollId] = useState<string | null>(null);
   const [localLoading, setLocalLoading] = useState(false);
+  const [currentVoteResult, setCurrentVoteResult] = useState<{ hasVoted: boolean; optionId: number }>({ 
+    hasVoted: false, 
+    optionId: 0 
+  });
+  const isMounted = useRef(true);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
   
   // Create a memoized function to fetch polls from localStorage
   const loadUserPolls = useCallback(() => {
@@ -31,6 +43,27 @@ export default function Home() {
   useEffect(() => {
     loadUserPolls();
   }, [loadUserPolls]);
+
+  // Fetch vote result when poll data changes
+  useEffect(() => {
+    if (pollData) {
+      const fetchVoteResult = async () => {
+        try {
+          const result = await getVoteResult();
+          if (isMounted.current) {
+            setCurrentVoteResult(result);
+          }
+        } catch (error) {
+          console.error("Error fetching vote result:", error);
+          if (isMounted.current) {
+            setCurrentVoteResult({ hasVoted: false, optionId: 0 });
+          }
+        }
+      };
+      
+      fetchVoteResult();
+    }
+  }, [pollData, getVoteResult]);
 
   // Reload polls when activeTab changes to "vote"
   useEffect(() => {
@@ -147,7 +180,7 @@ export default function Home() {
                     <p className="text-center">No poll data available</p>
                   </div>
                 ) : (
-                  <PollCard poll={pollData} voteResult={getVoteResult()} />
+                  <PollCard poll={pollData} voteResult={currentVoteResult} />
                 )}
               </div>
             ) : (

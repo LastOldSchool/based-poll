@@ -265,20 +265,40 @@ export function usePoll() {
   }, [pollId, refetchPoll]);
 
   /**
-   * Get vote result from localStorage or chain
-   * Combines blockchain data with localStorage data
+   * Get vote result from blockchain or localStorage as fallback
+   * Tries to get vote data from the chain first, then falls back to localStorage
    */
-  const getVoteResult = () => {
+  const getVoteResult = useCallback(async () => {
     if (!pollData || !address) return { hasVoted: false, optionId: 0 };
     
-    // Check if the current wallet has voted on this poll
-    const userVote = getUserVoteForPoll(pollData.id, address);
-    if (userVote) {
-      return { hasVoted: true, optionId: userVote.optionId };
+    try {
+      // First try to get vote information from the blockchain
+      if (pollContract.checkVote) {
+        const blockchainVote = await pollContract.checkVote(pollData.id, address as `0x${string}`);
+        if (blockchainVote.hasVoted) {
+          return blockchainVote;
+        }
+      }
+      
+      // Fall back to localStorage if blockchain data is not available
+      const userVote = getUserVoteForPoll(pollData.id, address);
+      if (userVote) {
+        return { hasVoted: true, optionId: userVote.optionId };
+      }
+      
+      return { hasVoted: false, optionId: 0 };
+    } catch (error) {
+      console.error("Error getting vote result:", error);
+      
+      // If blockchain check fails, try localStorage
+      const userVote = getUserVoteForPoll(pollData.id, address);
+      if (userVote) {
+        return { hasVoted: true, optionId: userVote.optionId };
+      }
+      
+      return { hasVoted: false, optionId: 0 };
     }
-    
-    return { hasVoted: false, optionId: 0 };
-  };
+  }, [pollData, address]);
 
   return {
     pollData,

@@ -28,7 +28,7 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
       {poll.options.map((option, index) => {
         const voteCount = poll.voteCounts[index];
         const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
-        const isUserVote = userVoteOptionId === index;
+        const isUserVote = userVoteOptionId === index + 1;
         
         return (
           <div key={index} className="space-y-1">

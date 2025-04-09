@@ -46,8 +46,18 @@ export default function WalletConnect() {
       }
       setIsModalOpen(false);
     } catch (error: unknown) {
-      console.error("Error connecting wallet:", error);
-      setError("Failed to connect wallet");
+      // More specific error handling
+      if (error instanceof Error) {
+        setError(`Failed to connect wallet: ${error.message}`);
+      } else if (typeof error === 'object' && error !== null) {
+        // Some wallet providers return custom error objects
+        const errorObj = error as Record<string, unknown>;
+        const errorMessage = errorObj.message || JSON.stringify(error);
+        setError(`Failed to connect wallet: ${errorMessage}`);
+      } else {
+        // Fallback for any other error type
+        setError("Failed to connect wallet. Please try again.");
+      }
     } finally {
       setIsPending(false);
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Poll } from "../../utils/types";
 import { usePoll } from "../../hooks/usePoll";
 import { formatDeadline } from "../../utils/time-utils";
@@ -35,6 +35,14 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
   const [voteStatus, setVoteStatus] = useState<{ hasVoted: boolean; optionId: number }>(
     voteResult || { hasVoted: false, optionId: 0 }
   );
+  const isMounted = useRef(true);
+
+  // Set isMounted to false when component unmounts
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     // Format the deadline each time it updates
@@ -47,9 +55,24 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
     // Check if user has voted (use voteResult if provided, otherwise get from hook)
     if (voteResult) {
       setVoteStatus(voteResult);
-    } else {
-      const result = getVoteResult();
-      setVoteStatus(result);
+    } else if (address) { // Only fetch if there's an address
+      // Since getVoteResult is now async, we need to handle it with an async function
+      const fetchVoteStatus = async () => {
+        try {
+          const result = await getVoteResult();
+          if (isMounted.current) { // Only update state if component is still mounted
+            setVoteStatus(result);
+          }
+        } catch (error) {
+          console.error("Error fetching vote status:", error);
+          // Fallback to no vote
+          if (isMounted.current) {
+            setVoteStatus({ hasVoted: false, optionId: 0 });
+          }
+        }
+      };
+      
+      fetchVoteStatus();
     }
   }, [poll, getVoteResult, address, voteResult]);
 
@@ -82,7 +105,7 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
       await vote(poll.question, selectedOption, poll.optionCount, poll.deadline);
       
       // After voting, update the vote status and refetch poll data
-      const result = getVoteResult();
+      const result = await getVoteResult();
       setVoteStatus(result);
       setIsVoting(false);
       
