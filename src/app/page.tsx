@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import WalletConnect from "../components/WalletConnect";
 import CreatePollForm from "../components/poll/CreatePollForm";
 import PollCard from "../components/poll/PollCard";
+import ImportPollForm from "../components/poll/ImportPollForm";
 import Footer from "../components/Footer";
 import { usePoll } from "../hooks/usePoll";
 import { getCreatedPolls, StoredPoll } from "../utils/localStorage";
@@ -11,7 +12,7 @@ import { formatDate, isPollEnded } from "../utils/poll-utils";
 import { Button } from "../components/ui/button";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"vote" | "create">("vote");
+  const [activeTab, setActiveTab] = useState<"vote" | "create" | "import">("vote");
   const { pollData, isPollLoading, isPollError, fetchPoll, getVoteResult } = usePoll();
   const [userPolls, setUserPolls] = useState<StoredPoll[]>([]);
   const [selectedPollId, setSelectedPollId] = useState<string | null>(null);
@@ -135,6 +136,16 @@ export default function Home() {
               >
                 Create Poll
               </button>
+              <button
+                onClick={() => setActiveTab("import")}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === "import"
+                    ? "bg-green-100 dark:bg-green-950/30 text-green-700"
+                    : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                }`}
+              >
+                Import
+              </button>
             </div>
             
             <div className="hidden md:block">
@@ -219,9 +230,19 @@ export default function Home() {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === "create" ? (
           <div className="max-w-lg mx-auto">
             <CreatePollForm />
+          </div>
+        ) : (
+          <div className="max-w-lg mx-auto">
+            <ImportPollForm 
+              onSuccess={() => {
+                // Reload polls and switch to vote tab
+                loadUserPolls();
+                setActiveTab("vote");
+              }}
+            />
           </div>
         )}
       </section>

@@ -8,9 +8,11 @@ import { useAccount } from "wagmi";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { VoteOption } from "./VoteOption";
-import { CircleCheck, XCircle } from "lucide-react";
+import { CircleCheck, XCircle, Download } from "lucide-react";
 import VoteResults from "./VoteResults";
 import { formatAddress } from "../../utils/reown";
+import { getCreatedPollById } from "../../utils/localStorage";
+import { exportPollToJson } from "../../utils/poll-utils";
 
 interface PollCardProps {
   poll: Poll;
@@ -120,6 +122,38 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
     }
   };
 
+  const handleExportPoll = () => {
+    try {
+      // Get the full stored poll data including prePollId
+      const storedPoll = getCreatedPollById(poll.id);
+      
+      if (!storedPoll) {
+        throw new Error("Poll data not found in local storage");
+      }
+      
+      // Convert poll to JSON
+      const pollJson = exportPollToJson(storedPoll);
+      
+      // Create a blob and download link
+      const blob = new Blob([pollJson], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      
+      // Create a temporary link element and trigger download
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `poll-${poll.id.slice(0, 8)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error exporting poll:", error);
+      // You might want to show an error message to the user here
+    }
+  };
+
   return (
     <Card className={`w-full max-w-md mx-auto overflow-hidden ${className}`}>
       <CardHeader>
@@ -200,6 +234,16 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
             Thank you for voting!
           </div>
         )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={handleExportPoll}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Export Poll
+        </Button>
 
         {isConnected && address && (
           <div className="w-full text-center text-xs font-mono text-base-purple mt-2">

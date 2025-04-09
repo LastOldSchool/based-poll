@@ -1,5 +1,6 @@
 import { keccak256, stringToHex, toBytes } from "viem";
 import { PollParams } from "./types";
+import { StoredPoll } from "./localStorage";
 
 /**
  * Generate a pre-poll ID from a question
@@ -65,4 +66,46 @@ export function calculatePollId(params: PollParams): `0x${string}` {
     })
   );
   return keccak256(encoded);
+}
+
+/**
+ * Export a poll to JSON format
+ * @param poll - The poll to export
+ * @returns JSON string representation of the poll
+ */
+export function exportPollToJson(poll: StoredPoll): string {
+  try {
+    return JSON.stringify(poll, null, 2);
+  } catch (error) {
+    console.error('Failed to export poll:', error);
+    throw new Error('Failed to export poll');
+  }
+}
+
+/**
+ * Import a poll from JSON
+ * @param jsonData - JSON string representation of a poll
+ * @returns The imported poll data
+ */
+export function importPollFromJson(jsonData: string): StoredPoll {
+  try {
+    const poll = JSON.parse(jsonData) as StoredPoll;
+    
+    // Validate required fields
+    if (!poll.id || !poll.prePollId || !poll.question || !Array.isArray(poll.options) || 
+        poll.options.length < 2 || typeof poll.deadline !== 'number' || 
+        typeof poll.optionCount !== 'number') {
+      throw new Error('Invalid poll data format');
+    }
+    
+    // Add creation timestamp if missing
+    if (!poll.createdAt) {
+      poll.createdAt = Math.floor(Date.now() / 1000);
+    }
+    
+    return poll;
+  } catch (error) {
+    console.error('Failed to import poll:', error);
+    throw new Error('Failed to import poll: Invalid JSON format');
+  }
 } 
