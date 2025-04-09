@@ -6,6 +6,7 @@ import { Poll, VoteResult } from "../../utils/types";
 import PollOption from "./PollOption";
 import Button from "../ui/Button";
 import { usePoll } from "../../hooks/usePoll";
+import { useAccount } from "wagmi";
 
 interface PollCardProps {
   poll: Poll;
@@ -16,9 +17,7 @@ interface PollCardProps {
  * Poll card component displaying a poll with voting options
  */
 export default function PollCard({ poll, voteResult }: PollCardProps) {
-  // Use local state instead of wallet hooks
-  const [address, setAddress] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const { address, isConnected } = useAccount();
   const { vote } = usePoll();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isVoting, setIsVoting] = useState(false);
@@ -43,11 +42,15 @@ export default function PollCard({ poll, voteResult }: PollCardProps) {
     // Calculate total votes
     const votes = poll.voteCounts.reduce((sum, count) => sum + count, 0);
     setTotalVotes(votes);
-    
-    // Simulate connected wallet
-    setIsConnected(true);
-    setAddress("0x1234567890123456789012345678901234567890");
   }, [poll.deadline, poll.voteCounts]);
+
+  // Update voted state when voteResult changes
+  useEffect(() => {
+    if (voteResult) {
+      setHasVoted(voteResult.hasVoted);
+      setUserVoteOption(voteResult.optionId);
+    }
+  }, [voteResult]);
 
   const handleOptionClick = (id: number) => {
     if (!isConnected || hasVoted || pollHasEnded) return;
@@ -61,7 +64,14 @@ export default function PollCard({ poll, voteResult }: PollCardProps) {
     setErrorMessage(null);
     
     try {
-      await vote();
+      // Call contract to vote
+      await vote(
+        poll.question, 
+        selectedOption, 
+        poll.optionCount, 
+        poll.deadline
+      );
+      
       setHasVoted(true);
       setUserVoteOption(selectedOption);
     } catch (error) {

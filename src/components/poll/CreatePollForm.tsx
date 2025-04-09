@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePoll } from "../../hooks/usePoll";
+import { useAccount } from "wagmi";
 
 interface Option {
   id: number;
@@ -12,8 +13,7 @@ interface Option {
  * Form component for creating new polls
  */
 export default function CreatePollForm() {
-  // Use a simple state for wallet connection
-  const [isConnected, setIsConnected] = useState(false);
+  const { isConnected } = useAccount();
   const { createPoll } = usePoll();
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState<Option[]>([
@@ -26,11 +26,9 @@ export default function CreatePollForm() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  // Ensure client-side only rendering and simulate connection
+  // Ensure client-side only rendering
   useEffect(() => {
     setMounted(true);
-    // Simulate being connected for demo purposes
-    setIsConnected(true);
   }, []);
 
   const addOption = () => {

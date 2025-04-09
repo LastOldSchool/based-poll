@@ -7,7 +7,7 @@ export const chains = {
 };
 
 // Contract addresses
-export const POLL_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000'; // Replace with actual contract address
+export const POLL_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_POLL_CONTRACT_ADDRESS as `0x${string}` || '0x0000000000000000000000000000000000000000';
 
 // ABI for the Poll contract
 export const POLL_CONTRACT_ABI = [

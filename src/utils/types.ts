@@ -2,7 +2,7 @@
  * Poll data structure
  */
 export interface Poll {
-  id: string;
+  id: `0x${string}`;
   question: string;
   options: string[];
   deadline: number;

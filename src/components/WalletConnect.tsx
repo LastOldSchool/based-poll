@@ -2,17 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { formatAddress } from "../utils/reown";
+import { useAccount } from "wagmi";
 
 /**
- * Mock wallet connection component
+ * Wallet connection component using Wagmi
  */
 export default function WalletConnect() {
-  const [address, setAddress] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [isPending, setIsPending] = useState(false);
+  const { address, isConnected } = useAccount();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   // Handle client-side only rendering to prevent hydration mismatch
   useEffect(() => {
@@ -20,17 +20,18 @@ export default function WalletConnect() {
   }, []);
 
   const handleConnect = async () => {
+    if (typeof window === 'undefined') return;
+    
     setError(null);
     setIsPending(true);
     
     try {
-      // Simulate connection delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const mockAddress = "0x" + Array.from({length: 40}, () => 
-        Math.floor(Math.random() * 16).toString(16)).join('');
-      
-      setAddress(mockAddress);
-      setIsConnected(true);
+      // Use window.ethereum directly since we're using wagmi
+      if (window.ethereum) {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+      } else {
+        setError("No wallet detected");
+      }
       setIsModalOpen(false);
     } catch (error: unknown) {
       console.error("Error connecting wallet:", error);
@@ -41,11 +42,11 @@ export default function WalletConnect() {
   };
 
   const handleDisconnect = async () => {
-    try {
-      setAddress(null);
-      setIsConnected(false);
-    } catch (error: unknown) {
-      console.error("Error disconnecting wallet:", error);
+    // Since wagmi's useAccount is read-only,
+    // we would typically rely on wallet's disconnection
+    // but for this demo, we'll just reload the page
+    if (typeof window !== 'undefined') {
+      window.location.reload();
     }
   };
 
@@ -74,7 +75,7 @@ export default function WalletConnect() {
         </button>
       ) : (
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleConnect}
           disabled={isPending}
           className="px-4 py-2 rounded-lg bg-base-blue text-white font-medium hover:bg-opacity-90 transition-all disabled:opacity-70"
         >
@@ -82,7 +83,7 @@ export default function WalletConnect() {
         </button>
       )}
 
-      {isModalOpen && (
+      {isModalOpen && !isConnected && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-base-dark rounded-xl p-6 max-w-md w-full">
             <h3 className="text-lg font-bold mb-4">Connect Wallet</h3>
@@ -99,14 +100,7 @@ export default function WalletConnect() {
                 disabled={isPending}
                 className="flex items-center justify-center space-x-2 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all disabled:opacity-70"
               >
-                <span>MetaMask / Browser Wallet</span>
-              </button>
-              <button
-                onClick={handleConnect}
-                disabled={isPending}
-                className="flex items-center justify-center space-x-2 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all disabled:opacity-70"
-              >
-                <span>WalletConnect</span>
+                <span>Connect Wallet</span>
               </button>
             </div>
             <button

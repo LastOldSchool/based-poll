@@ -4,12 +4,40 @@ import { base } from 'viem/chains';
 import { calculatePollId } from './poll-utils';
 import { Poll } from './types';
 
+// Add caching for contract call results
+type CacheData = {
+  data: Poll | null | boolean | `0x${string}` | { hasVoted: boolean; optionId: number };
+  timestamp: number;
+};
+
+const cache: Record<string, CacheData> = {};
+const CACHE_TTL = 30000; // 30 seconds cache lifetime
+
+// Get RPC URL from environment variables or fallback to default
+const RPC_URL = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org';
+
 /**
- * Public client for read-only operations
+ * Public client for read-only operations - created once and reused
  */
 export const publicClient = createPublicClient({
-  chain: base,
-  transport: http(),
+  chain: {
+    ...base,
+    rpcUrls: {
+      ...base.rpcUrls,
+      default: {
+        http: [RPC_URL],
+      },
+      public: {
+        http: [RPC_URL],
+      },
+    },
+  },
+  transport: http(RPC_URL, {
+    batch: true, // Enable request batching
+    // Add some throttling to prevent too many requests
+    retryDelay: 1000,
+    retryCount: 3
+  }),
 });
 
 /**
@@ -22,6 +50,14 @@ export const pollContract = {
    * @returns Poll data
    */
   async getPoll(pollId: `0x${string}`): Promise<Poll | null> {
+    const cacheKey = `getPoll-${pollId}`;
+    const cachedData = cache[cacheKey];
+    
+    // Return cached data if available and not expired
+    if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
+      return cachedData.data as Poll | null;
+    }
+    
     try {
       const result = await publicClient.readContract({
         address: POLL_CONTRACT_ADDRESS as `0x${string}`,
@@ -38,15 +74,34 @@ export const pollContract = {
       // Return null if poll doesn't exist
       if (!exists) return null;
 
-      return {
+      // In a real app, we would look up this data from a database or IPFS
+      // For now we'll hard-code it to match what we use to generate the poll ID
+      const pollQuestion = "What is your favorite Base chain DApp?";
+      const pollOptions = [
+        "Decentralized Exchange",
+        "NFT Marketplace",
+        "DeFi Protocol",
+        "Social Media",
+        "Gaming",
+      ];
+
+      const pollData = {
         id: pollId,
-        question: '', // Question is stored off-chain
-        options: [], // Options are stored off-chain
+        question: pollQuestion,
+        options: pollOptions,
         deadline: Number(deadline),
         voteCounts: voteCounts.map((count: bigint) => Number(count)),
         optionCount: Number(optionCount),
         exists: Boolean(exists),
       };
+      
+      // Cache the result
+      cache[cacheKey] = {
+        data: pollData,
+        timestamp: Date.now()
+      };
+      
+      return pollData;
     } catch (error) {
       console.error('Error fetching poll:', error);
       return null;
@@ -60,6 +115,14 @@ export const pollContract = {
    * @returns Vote information
    */
   async checkVote(pollId: `0x${string}`, address: `0x${string}`): Promise<{ hasVoted: boolean; optionId: number }> {
+    const cacheKey = `checkVote-${pollId}-${address}`;
+    const cachedData = cache[cacheKey];
+    
+    // Return cached data if available and not expired
+    if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
+      return cachedData.data as { hasVoted: boolean; optionId: number };
+    }
+    
     try {
       const result = await publicClient.readContract({
         address: POLL_CONTRACT_ADDRESS as `0x${string}`,
@@ -73,10 +136,18 @@ export const pollContract = {
       }
 
       const [hasVoted, optionId] = result;
-      return {
+      const voteData = {
         hasVoted: Boolean(hasVoted),
         optionId: Number(optionId),
       };
+      
+      // Cache the result
+      cache[cacheKey] = {
+        data: voteData,
+        timestamp: Date.now()
+      };
+      
+      return voteData;
     } catch (error) {
       console.error('Error checking vote:', error);
       return { hasVoted: false, optionId: 0 };
@@ -89,6 +160,14 @@ export const pollContract = {
    * @returns Whether the poll has ended
    */
   async isPollEnded(pollId: `0x${string}`): Promise<boolean> {
+    const cacheKey = `isPollEnded-${pollId}`;
+    const cachedData = cache[cacheKey];
+    
+    // Return cached data if available and not expired
+    if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
+      return cachedData.data as boolean;
+    }
+    
     try {
       const result = await publicClient.readContract({
         address: POLL_CONTRACT_ADDRESS as `0x${string}`,
@@ -97,7 +176,15 @@ export const pollContract = {
         args: [pollId],
       });
 
-      return Boolean(result);
+      const hasEnded = Boolean(result);
+      
+      // Cache the result
+      cache[cacheKey] = {
+        data: hasEnded,
+        timestamp: Date.now()
+      };
+      
+      return hasEnded;
     } catch (error) {
       console.error('Error checking if poll has ended:', error);
       return false;
@@ -116,7 +203,23 @@ export const pollContract = {
     optionCount: number,
     deadline: number
   ): Promise<`0x${string}`> {
+    const cacheKey = `calculateActualPollId-${prePollId}-${optionCount}-${deadline}`;
+    const cachedData = cache[cacheKey];
+    
+    // Return cached data if available and not expired
+    if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
+      return cachedData.data as `0x${string}`;
+    }
+    
     try {
+      console.log('Calculating poll ID with:', {
+        prePollId,
+        optionCount,
+        deadline,
+        contractAddress: POLL_CONTRACT_ADDRESS,
+        rpcUrl: RPC_URL,
+      });
+      
       const result = await publicClient.readContract({
         address: POLL_CONTRACT_ADDRESS as `0x${string}`,
         abi: POLL_CONTRACT_ABI,
@@ -124,11 +227,29 @@ export const pollContract = {
         args: [prePollId, optionCount, BigInt(deadline)],
       });
 
-      return result as `0x${string}`;
+      const pollId = result as `0x${string}`;
+      console.log('Successfully calculated poll ID:', pollId);
+      
+      // Cache the result
+      cache[cacheKey] = {
+        data: pollId,
+        timestamp: Date.now()
+      };
+      
+      return pollId;
     } catch (error) {
       console.error('Error calculating poll ID:', error);
-      // Fall back to client-side calculation if contract call fails
-      return calculatePollId({ prePollId, optionCount, deadline });
+      
+      // Try fallback method with client-side calculation
+      console.log('Trying fallback method with client-side calculation...');
+      try {
+        const clientSideId = calculatePollId({ prePollId, optionCount, deadline });
+        console.log('Successfully calculated client-side poll ID:', clientSideId);
+        return clientSideId;
+      } catch (fallbackError) {
+        console.error('Fallback calculation also failed:', fallbackError);
+        throw new Error('Failed to calculate poll ID with both methods');
+      }
     }
   },
 

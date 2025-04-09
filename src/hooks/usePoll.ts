@@ -1,35 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { generatePrePollId } from "../utils/poll-utils";
-import { PollParams } from "../utils/types";
-
-// Define a type for the poll data
-interface PollData {
-  exists: boolean;
-  question: string;
-  optionCount: number;
-  deadline: number;
-  voteCounts: number[];
-}
-
-// Mock function to simulate reading from a contract
-const mockReadContract = async (): Promise<PollData> => {
-  return {
-    exists: true,
-    question: "What is your favorite Base chain DApp?",
-    optionCount: 5,
-    deadline: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
-    voteCounts: [42, 27, 35, 18, 10]
-  };
-};
-
-// Mock function to simulate writing to a contract
-const mockWriteContract = async (): Promise<{ hash: string }> => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return { hash: "0x" + Math.random().toString(16).substring(2) };
-};
+import { PollParams, Poll } from "../utils/types";
+import { pollContract } from "../utils/contract";
+import { useAccount, useWalletClient } from "wagmi";
+import { POLL_CONTRACT_ABI, POLL_CONTRACT_ADDRESS } from "../utils/config";
 
 /**
  * Hook to interact with the poll contract
@@ -37,16 +13,18 @@ const mockWriteContract = async (): Promise<{ hash: string }> => {
 export function usePoll() {
   const [pollParams, setPollParams] = useState<PollParams | null>(null);
   const [pollId, setPollId] = useState<`0x${string}` | null>(null);
-  const [pollData, setPollData] = useState<PollData | null>(null);
+  const [pollData, setPollData] = useState<Poll | null>(null);
   const [isPollLoading, setIsPollLoading] = useState(false);
   const [isPollError, setIsPollError] = useState(false);
+  const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
 
-  const refetchPoll = async () => {
+  const refetchPoll = useCallback(async () => {
     if (!pollId) return;
     
     setIsPollLoading(true);
     try {
-      const data = await mockReadContract();
+      const data = await pollContract.getPoll(pollId);
       setPollData(data);
       setIsPollError(false);
     } catch (error) {
@@ -55,7 +33,7 @@ export function usePoll() {
     } finally {
       setIsPollLoading(false);
     }
-  };
+  }, [pollId]);
 
   /**
    * Create a new poll
@@ -65,6 +43,10 @@ export function usePoll() {
    * @returns Promise resolving to transaction hash
    */
   const createPoll = async (question: string, options: string[], deadline: number) => {
+    if (!address || !isConnected || !walletClient) {
+      throw new Error("Wallet not connected");
+    }
+
     const prePollId = generatePrePollId(question);
     const optionCount = options.length;
     
@@ -76,8 +58,15 @@ export function usePoll() {
     setPollParams(params);
     
     try {
-      const result = await mockWriteContract();
-      return result.hash;
+      // Use Viem to interact with the contract
+      const hash = await walletClient.writeContract({
+        address: POLL_CONTRACT_ADDRESS,
+        abi: POLL_CONTRACT_ABI,
+        functionName: 'createPoll',
+        args: [prePollId, optionCount, BigInt(deadline)]
+      });
+      
+      return hash;
     } catch (error) {
       console.error("Error creating poll:", error);
       throw error;
@@ -92,10 +81,23 @@ export function usePoll() {
    * @param deadline - Poll deadline timestamp
    * @returns Promise resolving to transaction hash
    */
-  const vote = async () => {
+  const vote = async (question: string, optionId: number, optionCount: number, deadline: number) => {
+    if (!address || !isConnected || !walletClient) {
+      throw new Error("Wallet not connected");
+    }
+    
+    const prePollId = generatePrePollId(question);
+    
     try {
-      const result = await mockWriteContract();
-      return result.hash;
+      // Use Viem to interact with the contract
+      const hash = await walletClient.writeContract({
+        address: POLL_CONTRACT_ADDRESS,
+        abi: POLL_CONTRACT_ABI,
+        functionName: 'vote',
+        args: [prePollId, optionId, optionCount, BigInt(deadline)]
+      });
+      
+      return hash;
     } catch (error) {
       console.error("Error voting on poll:", error);
       throw error;
@@ -116,6 +118,7 @@ export function usePoll() {
     pollParams,
     isPollLoading,
     isPollError,
+    setIsPollError,
     refetchPoll,
     createPoll,
     vote,
