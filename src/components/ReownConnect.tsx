@@ -44,7 +44,7 @@ export default function ReownConnect() {
     return (
       <div className="relative">
         <button
-          className="px-4 py-2 rounded-lg bg-base-blue text-white font-medium hover:bg-opacity-90 transition-all"
+          className="px-6 py-3 rounded-lg bg-blue-600 text-white font-medium text-lg shadow-md hover:bg-blue-700 transition-all border-2 border-blue-700"
         >
           Connect Wallet
         </button>
@@ -57,7 +57,7 @@ export default function ReownConnect() {
       {isConnected ? (
         <button
           onClick={handleDisconnect}
-          className="flex items-center px-4 py-2 rounded-lg bg-base-purple text-white font-medium hover:bg-opacity-90 transition-all"
+          className="flex items-center px-6 py-3 rounded-lg bg-purple-600 text-white font-medium text-lg shadow-md hover:bg-purple-700 transition-all border-2 border-purple-700"
         >
           <span className="hidden md:inline-block mr-2">Connected:</span>
           <span>{address ? formatAddress(address) : "..."}</span>
@@ -66,7 +66,7 @@ export default function ReownConnect() {
         <button
           onClick={handleConnect}
           disabled={isPending}
-          className="px-4 py-2 rounded-lg bg-base-blue text-white font-medium hover:bg-opacity-90 transition-all disabled:opacity-70"
+          className="px-6 py-3 rounded-lg bg-blue-600 text-white font-medium text-lg shadow-md hover:bg-blue-700 transition-all disabled:opacity-70 border-2 border-blue-700"
         >
           {isPending ? "Connecting..." : "Connect Wallet"}
         </button>

@@ -114,12 +114,12 @@ export default function CreatePollForm() {
   // Only show the wallet connection message after client-side hydration
   if (!isConnected) {
     return (
-      <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
-        <h2 className="text-xl md:text-2xl font-bold mb-4">Create a Poll</h2>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">
+      <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-6 md:p-8 shadow-md">
+        <h2 className="text-2xl md:text-3xl font-bold mb-4 text-center">Create a Poll</h2>
+        <p className="text-gray-600 dark:text-gray-300 mb-8 text-center text-lg">
           Connect your wallet to create a new poll.
         </p>
-        <div className="flex justify-center">
+        <div className="flex justify-center mb-4">
           <ReownConnect />
         </div>
       </div>
@@ -219,10 +219,10 @@ export default function CreatePollForm() {
         <button
           type="submit"
           disabled={isCreating}
-          className={`w-full p-3 rounded-lg font-medium ${
+          className={`w-full p-3 rounded-lg font-medium text-lg shadow-md ${
             isCreating
               ? "bg-gray-300 dark:bg-gray-700 cursor-not-allowed"
-              : "bg-base-purple text-white hover:bg-purple-600"
+              : "bg-purple-600 text-white hover:bg-purple-700 border-2 border-purple-700"
           }`}
         >
           {isCreating ? "Creating Poll..." : "Create Poll"}

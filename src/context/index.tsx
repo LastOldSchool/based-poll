@@ -43,7 +43,9 @@ export const modal = createAppKit({
 function ContextProvider({ children }: { children: ReactNode }): ReactNode {
   return (
     <WagmiProvider config={wagmiAdapter.wagmiConfig}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        {children}
+      </QueryClientProvider>
     </WagmiProvider>
   )
 }
