@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { formatAddress } from "../utils/reown";
+import { formatAddress } from '@/utils/reown';
 import { useAppKit, useAppKitAccount } from "@reown/appkit/react";
+import Button from "./ui/Button";
 
 /**
  * Wallet connection component using Reown AppKit
@@ -43,11 +44,12 @@ export default function ReownConnect() {
   if (!mounted) {
     return (
       <div className="relative">
-        <button
-          className="px-6 py-3 rounded-lg bg-blue-600 text-white font-medium text-lg shadow-md hover:bg-blue-700 transition-all border-2 border-blue-700"
+        <Button
+          variant="primary"
+          size="lg"
         >
           Connect Wallet
-        </button>
+        </Button>
       </div>
     );
   }
@@ -55,21 +57,24 @@ export default function ReownConnect() {
   return (
     <div className="relative">
       {isConnected ? (
-        <button
+        <Button
           onClick={handleDisconnect}
-          className="flex items-center px-6 py-3 rounded-lg bg-purple-600 text-white font-medium text-lg shadow-md hover:bg-purple-700 transition-all border-2 border-purple-700"
+          variant="secondary"
+          size="lg"
         >
           <span className="hidden md:inline-block mr-2">Connected:</span>
           <span>{address ? formatAddress(address) : "..."}</span>
-        </button>
+        </Button>
       ) : (
-        <button
+        <Button
           onClick={handleConnect}
           disabled={isPending}
-          className="px-6 py-3 rounded-lg bg-blue-600 text-white font-medium text-lg shadow-md hover:bg-blue-700 transition-all disabled:opacity-70 border-2 border-blue-700"
+          isLoading={isPending}
+          variant="primary"
+          size="lg"
         >
-          {isPending ? "Connecting..." : "Connect Wallet"}
-        </button>
+          Connect Wallet
+        </Button>
       )}
     </div>
   );

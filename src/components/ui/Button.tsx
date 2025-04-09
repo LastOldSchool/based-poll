@@ -42,24 +42,24 @@ export default function Button({
   ...props
 }: ButtonProps) {
   // Base classes
-  const baseClasses = "rounded-lg font-medium transition-colors flex items-center justify-center";
+  const baseClasses = "rounded-lg font-medium transition-colors flex items-center justify-center shadow-md";
   
   // Size classes
   const sizeClasses = {
     sm: "text-sm px-3 py-1.5",
     md: "px-4 py-2",
-    lg: "text-lg px-5 py-2.5",
+    lg: "text-lg px-6 py-3",
   };
   
   // Variant classes
   const variantClasses = {
-    primary: "bg-base-blue text-white hover:bg-blue-600 active:bg-blue-700 disabled:bg-blue-300 dark:disabled:bg-blue-800",
-    secondary: "bg-base-purple text-white hover:bg-purple-600 active:bg-purple-700 disabled:bg-purple-300 dark:disabled:bg-purple-800",
-    outline: "border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700",
-    ghost: "hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700",
-    danger: "bg-red-500 text-white hover:bg-red-600 active:bg-red-700 disabled:bg-red-300 dark:disabled:bg-red-800",
-    success: "bg-green-500 text-white hover:bg-green-600 active:bg-green-700 disabled:bg-green-300 dark:disabled:bg-green-800",
-    transfer: "border border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white active:bg-orange-600 disabled:bg-orange-300 disabled:border-orange-300 dark:disabled:bg-orange-800",
+    primary: "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-300 dark:disabled:bg-blue-800 border-2 border-blue-700",
+    secondary: "bg-purple-600 text-white hover:bg-purple-700 active:bg-purple-800 disabled:bg-purple-300 dark:disabled:bg-purple-800 border-2 border-purple-700",
+    outline: "border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700 text-gray-800 dark:text-gray-200",
+    ghost: "hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700 text-gray-700 dark:text-gray-300",
+    danger: "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 disabled:bg-red-300 dark:disabled:bg-red-800 border-2 border-red-700",
+    success: "bg-green-600 text-white hover:bg-green-700 active:bg-green-800 disabled:bg-green-300 dark:disabled:bg-green-800 border-2 border-green-700",
+    transfer: "border-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white active:bg-orange-600 disabled:bg-orange-300 disabled:border-orange-300 dark:disabled:bg-orange-800",
   };
   
   // Width class

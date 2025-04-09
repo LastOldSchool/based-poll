@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePoll } from "../../hooks/usePoll";
+import { usePoll } from '@/hooks/usePoll';
 import { useAccount } from "wagmi";
 import ReownConnect from "../../components/ReownConnect";
+import Button from "../ui/Button";
 
 interface Option {
   id: number;
@@ -185,14 +186,15 @@ export default function CreatePollForm() {
           ))}
           
           {options.length < 6 && (
-            <button
+            <Button
               type="button"
               onClick={addOption}
               disabled={isCreating}
-              className="mt-2 p-2 w-full border border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+              variant="ghost"
+              className="mt-2 w-full border border-dashed border-gray-300 dark:border-gray-700"
             >
               + Add Option
-            </button>
+            </Button>
           )}
         </div>
         
@@ -216,17 +218,16 @@ export default function CreatePollForm() {
           </select>
         </div>
         
-        <button
+        <Button
           type="submit"
           disabled={isCreating}
-          className={`w-full p-3 rounded-lg font-medium text-lg shadow-md ${
-            isCreating
-              ? "bg-gray-300 dark:bg-gray-700 cursor-not-allowed"
-              : "bg-purple-600 text-white hover:bg-purple-700 border-2 border-purple-700"
-          }`}
+          isLoading={isCreating}
+          variant="secondary"
+          size="lg"
+          fullWidth
         >
-          {isCreating ? "Creating Poll..." : "Create Poll"}
-        </button>
+          Create Poll
+        </Button>
       </form>
     </div>
   );
