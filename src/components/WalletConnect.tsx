@@ -17,6 +17,18 @@ export default function WalletConnect() {
   // Handle client-side only rendering to prevent hydration mismatch
   useEffect(() => {
     setMounted(true);
+    
+    // Add event listener for the custom connect-wallet event
+    const handleConnectWalletEvent = () => {
+      handleConnect();
+    };
+    
+    window.addEventListener('connect-wallet', handleConnectWalletEvent);
+    
+    // Clean up event listener on component unmount
+    return () => {
+      window.removeEventListener('connect-wallet', handleConnectWalletEvent);
+    };
   }, []);
 
   const handleConnect = async () => {

@@ -28,8 +28,11 @@ export default function PollOption({
   hasVoted,
   userVote,
 }: PollOptionProps) {
-  const percentage = calculatePercentage(voteCount, totalVotes);
+  const percentage = totalVotes > 0 ? calculatePercentage(voteCount, totalVotes) : 0;
   const isVotedByUser = hasVoted && userVote === id;
+
+  const displayPercentage = voteCount > 0 ? Math.max(1, percentage) : 0;
+  const progressWidth = `${percentage}%`;
 
   return (
     <button
@@ -61,13 +64,21 @@ export default function PollOption({
         </div>
         {hasVoted && (
           <span className="text-sm font-semibold">
-            {voteCount} ({percentage}%)
+            {voteCount} ({displayPercentage}%)
           </span>
         )}
       </div>
       
       {hasVoted && (
-        <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-base-blue to-base-purple rounded-b-lg" style={{ width: `${percentage}%` }}></div>
+        <>
+          <div className="absolute bottom-0 left-0 h-1 bg-gray-200 dark:bg-gray-700 rounded-b-lg w-full"></div>
+          {voteCount > 0 && (
+            <div 
+              className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-base-blue to-base-purple rounded-b-lg" 
+              style={{ width: progressWidth }}
+            ></div>
+          )}
+        </>
       )}
     </button>
   );

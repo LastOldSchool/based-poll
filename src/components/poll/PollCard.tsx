@@ -1,173 +1,190 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { formatDate, isPollEnded as isEndedUtil } from "../../utils/poll-utils";
-import { Poll, VoteResult } from "../../utils/types";
-import PollOption from "./PollOption";
-import Button from "../ui/Button";
+import React, { useState, useEffect } from "react";
+import { Poll } from "../../utils/types";
 import { usePoll } from "../../hooks/usePoll";
+import { formatDeadline } from "../../utils/time-utils";
 import { useAccount } from "wagmi";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
+import { VoteOption } from "./VoteOption";
+import { CircleCheck, XCircle } from "lucide-react";
+import VoteResults from "./VoteResults";
+import { formatAddress } from "../../utils/reown";
 
 interface PollCardProps {
   poll: Poll;
-  voteResult?: VoteResult;
+  className?: string;
+  voteResult?: { hasVoted: boolean; optionId: number };
 }
 
 /**
- * Poll card component displaying a poll with voting options
+ * PollCard component - displays a poll with voting options
+ * @param poll - Poll data to display
+ * @param className - Optional CSS class name
+ * @param voteResult - Optional vote result data
  */
-export default function PollCard({ poll, voteResult }: PollCardProps) {
+export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
+  const { vote, getVoteResult, refetchPoll } = usePoll();
   const { address, isConnected } = useAccount();
-  const { vote } = usePoll();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isVoting, setIsVoting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [hasVoted, setHasVoted] = useState<boolean>(!!voteResult?.hasVoted);
-  const [userVoteOption, setUserVoteOption] = useState<number>(voteResult?.optionId || 0);
+  const [voteError, setVoteError] = useState<string | null>(null);
   const [pollHasEnded, setPollHasEnded] = useState(false);
   const [formattedDeadline, setFormattedDeadline] = useState("");
-  const [totalVotes, setTotalVotes] = useState(0);
-  const [mounted, setMounted] = useState(false);
+  const [voteStatus, setVoteStatus] = useState<{ hasVoted: boolean; optionId: number }>(
+    voteResult || { hasVoted: false, optionId: 0 }
+  );
 
-  // Calculate browser-dependent values in useEffect to prevent hydration mismatch
   useEffect(() => {
-    setMounted(true);
-    
-    // Calculate if poll has ended
-    setPollHasEnded(isEndedUtil(poll.deadline));
-    
-    // Format the deadline date
-    setFormattedDeadline(formatDate(poll.deadline));
-    
-    // Calculate total votes
-    const votes = poll.voteCounts.reduce((sum, count) => sum + count, 0);
-    setTotalVotes(votes);
-  }, [poll.deadline, poll.voteCounts]);
+    // Format the deadline each time it updates
+    setFormattedDeadline(formatDeadline(poll.deadline));
 
-  // Update voted state when voteResult changes
-  useEffect(() => {
+    // Check if poll has ended
+    const now = Math.floor(Date.now() / 1000);
+    setPollHasEnded(now > poll.deadline);
+
+    // Check if user has voted (use voteResult if provided, otherwise get from hook)
     if (voteResult) {
-      setHasVoted(voteResult.hasVoted);
-      setUserVoteOption(voteResult.optionId);
+      setVoteStatus(voteResult);
+    } else {
+      const result = getVoteResult();
+      setVoteStatus(result);
     }
-  }, [voteResult]);
+  }, [poll, getVoteResult, address, voteResult]);
 
-  const handleOptionClick = (id: number) => {
-    if (!isConnected || hasVoted || pollHasEnded) return;
-    setSelectedOption(id);
+  const handleOptionSelect = (optionId: number) => {
+    setSelectedOption(optionId);
+    setVoteError(null);
   };
 
-  const handleVote = async () => {
-    if (!selectedOption || !isConnected || !address) return;
-    
+  const handleVoteSubmit = async () => {
+    if (!selectedOption) {
+      setVoteError("Please select an option");
+      return;
+    }
+
+    if (!isConnected || !address) {
+      // Trigger the wallet connect event instead of showing an error
+      window.dispatchEvent(new CustomEvent('connect-wallet'));
+      return;
+    }
+
+    if (pollHasEnded) {
+      setVoteError("This poll has ended");
+      return;
+    }
+
     setIsVoting(true);
-    setErrorMessage(null);
-    
+    setVoteError(null);
+
     try {
-      // Call contract to vote
-      await vote(
-        poll.question, 
-        selectedOption, 
-        poll.optionCount, 
-        poll.deadline
-      );
+      await vote(poll.question, selectedOption, poll.optionCount, poll.deadline);
       
-      setHasVoted(true);
-      setUserVoteOption(selectedOption);
+      // After voting, update the vote status and refetch poll data
+      const result = getVoteResult();
+      setVoteStatus(result);
+      setIsVoting(false);
+      
+      // Refetch poll data to ensure vote counts are up to date
+      await refetchPoll();
     } catch (error) {
       console.error("Error voting:", error);
-      setErrorMessage("Failed to submit vote. Please try again.");
-    } finally {
+      setVoteError("Failed to submit vote. Please try again.");
       setIsVoting(false);
     }
   };
 
-  // Server-side safe render with placeholder values
-  const renderVotingUI = () => {
-    if (!mounted) {
-      return (
-        <div className="text-center p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-          Loading...
-        </div>
-      );
-    }
-
-    if (!isConnected) {
-      return (
-        <div className="text-center p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-          Connect your wallet to vote
-        </div>
-      );
-    } 
-    
-    if (pollHasEnded) {
-      return (
-        <div className="text-center p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-          This poll has ended
-        </div>
-      );
-    } 
-    
-    if (hasVoted) {
-      return (
-        <div className="text-center p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-lg">
-          You voted for option {userVoteOption}
-        </div>
-      );
-    }
-    
-    return (
-      <Button
-        onClick={handleVote}
-        disabled={!selectedOption || isVoting}
-        isLoading={isVoting}
-        variant={selectedOption ? "primary" : "outline"}
-        fullWidth
-      >
-        {isVoting ? "Submitting..." : "Submit Vote"}
-      </Button>
-    );
-  };
-
   return (
-    <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
-      <div className="mb-6">
-        <h2 className="text-xl md:text-2xl font-bold mb-2">{poll.question}</h2>
-        <div className="flex flex-wrap gap-2 text-sm text-gray-500 dark:text-gray-400">
-          <span>
-            {mounted && pollHasEnded ? "Ended on" : "Ends on"}: {mounted ? formattedDeadline : "..."}
-          </span>
-          <span className="hidden md:inline">•</span>
-          <span>{mounted ? totalVotes : "..."} votes</span>
-        </div>
-      </div>
+    <Card className={`w-full max-w-md mx-auto overflow-hidden ${className}`}>
+      <CardHeader>
+        <CardTitle className="text-xl font-bold">{poll.question}</CardTitle>
+        <CardDescription>
+          {pollHasEnded ? (
+            <span className="text-red-500 flex items-center gap-1">
+              <XCircle className="h-4 w-4" />
+              Poll ended {formattedDeadline}
+            </span>
+          ) : (
+            <span className="text-green-500 flex items-center gap-1">
+              <CircleCheck className="h-4 w-4" />
+              Poll ends {formattedDeadline}
+            </span>
+          )}
+        </CardDescription>
+      </CardHeader>
 
-      <div className="mb-6">
-        {poll.options.map((option, index) => (
-          <PollOption
-            key={index}
-            id={index + 1}
-            text={option}
-            voteCount={poll.voteCounts[index] || 0}
-            totalVotes={totalVotes}
-            selected={selectedOption === index + 1}
-            disabled={!mounted || !isConnected || isVoting || pollHasEnded}
-            onClick={handleOptionClick}
-            hasVoted={mounted && hasVoted}
-            userVote={userVoteOption}
-          />
-        ))}
-      </div>
+      <CardContent className="px-8">
+        {voteStatus.hasVoted ? (
+          <div>
+            <div className="mb-4 p-2 bg-green-50 text-green-700 rounded-md flex items-center gap-2">
+              <CircleCheck className="h-5 w-5" />
+              <span>You voted for option {voteStatus.optionId}</span>
+            </div>
+            <VoteResults poll={poll} userVoteOptionId={voteStatus.optionId} />
+          </div>
+        ) : !isConnected ? (
+          <div className="flex flex-col items-center justify-center py-4">
+            <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-lg w-full text-center">
+              <p>Please connect your wallet to vote in this poll.</p>
+            </div>
+            <Button 
+              onClick={() => window.dispatchEvent(new CustomEvent('connect-wallet'))}
+              variant="primary"
+              fullWidth
+            >
+              Connect Wallet
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {poll.options.map((option, index) => (
+              <VoteOption
+                key={index}
+                option={option}
+                optionId={index + 1}
+                isSelected={selectedOption === index + 1}
+                onSelect={handleOptionSelect}
+                disabled={isVoting || pollHasEnded}
+              />
+            ))}
 
-      {errorMessage && (
-        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-lg">
-          {errorMessage}
-        </div>
-      )}
+            {voteError && <div className="text-red-500 text-sm mt-2">{voteError}</div>}
+          </div>
+        )}
+      </CardContent>
 
-      <div className="flex flex-col space-y-3">
-        {renderVotingUI()}
-      </div>
-    </div>
+      <CardFooter className="flex flex-col px-8 pb-4 gap-2">
+        {!voteStatus.hasVoted && !pollHasEnded && isConnected && (
+          <Button
+            className="w-full"
+            onClick={handleVoteSubmit}
+            disabled={!selectedOption || isVoting || !address || pollHasEnded}
+          >
+            {isVoting ? "Submitting..." : "Vote"}
+          </Button>
+        )}
+
+        {(!voteStatus.hasVoted && pollHasEnded) && (
+          <Button className="w-full" disabled>
+            Poll has ended
+          </Button>
+        )}
+        
+        {voteStatus.hasVoted && (
+          <div className="w-full text-center text-sm text-gray-500">
+            Thank you for voting!
+          </div>
+        )}
+
+        {isConnected && address && (
+          <div className="w-full text-center text-xs font-mono text-base-purple mt-2">
+            {formatAddress(address)}
+          </div>
+        )}
+      </CardFooter>
+    </Card>
   );
-} 
+}
+
+export default PollCard; 

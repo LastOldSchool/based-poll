@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePoll } from '@/hooks/usePoll';
 import { useAccount } from "wagmi";
-import ReownConnect from "../../components/ReownConnect";
-import Button from "../ui/Button";
+import { Button } from "../ui/button";
 
 interface Option {
   id: number;
@@ -53,6 +52,12 @@ export default function CreatePollForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Check for wallet connection first
+    if (!isConnected) {
+      window.dispatchEvent(new CustomEvent('connect-wallet'));
+      return;
+    }
+    
     // Validation
     if (!question.trim()) {
       setError("Please enter a question");
@@ -72,7 +77,7 @@ export default function CreatePollForm() {
       // Calculate deadline timestamp (current time + days)
       const deadline = Math.floor(Date.now() / 1000) + daysUntilDeadline * 24 * 60 * 60;
       
-      // Call contract to create poll
+      // Call createPoll which now also stores in localStorage
       await createPoll(
         question,
         options.map((o) => o.text),
@@ -112,123 +117,125 @@ export default function CreatePollForm() {
     );
   }
 
-  // Only show the wallet connection message after client-side hydration
-  if (!isConnected) {
-    return (
-      <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-6 md:p-8 shadow-md">
-        <h2 className="text-2xl md:text-3xl font-bold mb-4 text-center">Create a Poll</h2>
-        <p className="text-gray-600 dark:text-gray-300 mb-8 text-center text-lg">
-          Connect your wallet to create a new poll.
-        </p>
-        <div className="flex justify-center mb-4">
-          <ReownConnect />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
       <h2 className="text-xl md:text-2xl font-bold mb-4">Create a Poll</h2>
       
-      {successMessage && (
-        <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-lg">
-          {successMessage}
+      {!isConnected ? (
+        <div className="flex flex-col items-center justify-center p-6">
+          <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-lg w-full text-center">
+            <p>Please connect your wallet to create a poll.</p>
+          </div>
+          <Button 
+            onClick={() => window.dispatchEvent(new CustomEvent('connect-wallet'))}
+            variant="primary"
+            size="lg"
+          >
+            Connect Wallet
+          </Button>
         </div>
-      )}
-      
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-lg">
-          {error}
-        </div>
-      )}
-      
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label htmlFor="question" className="block text-sm font-medium mb-1">
-            Question
-          </label>
-          <input
-            type="text"
-            id="question"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="What would you like to ask?"
-            className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
-            disabled={isCreating}
-          />
-        </div>
-        
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1">
-            Options ({options.length}/6)
-          </label>
+      ) : (
+        <>
+          {successMessage && (
+            <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-lg">
+              {successMessage}
+            </div>
+          )}
           
-          {options.map((option) => (
-            <div key={option.id} className="flex mb-2">
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-lg">
+              {error}
+            </div>
+          )}
+          
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label htmlFor="question" className="block text-sm font-medium mb-1">
+                Question
+              </label>
               <input
                 type="text"
-                value={option.text}
-                onChange={(e) => updateOption(option.id, e.target.value)}
-                placeholder={`Option ${option.id}`}
-                className="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-l-lg bg-white dark:bg-gray-800"
+                id="question"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                placeholder="What would you like to ask?"
+                className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
                 disabled={isCreating}
               />
-              <button
-                type="button"
-                onClick={() => removeOption(option.id)}
-                disabled={options.length <= 2 || isCreating}
-                className="px-3 bg-gray-100 dark:bg-gray-700 border-y border-r border-gray-300 dark:border-gray-700 rounded-r-lg text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
-              >
-                ×
-              </button>
             </div>
-          ))}
-          
-          {options.length < 6 && (
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">
+                Options ({options.length}/6)
+              </label>
+              
+              {options.map((option) => (
+                <div key={option.id} className="flex mb-2">
+                  <input
+                    type="text"
+                    value={option.text}
+                    onChange={(e) => updateOption(option.id, e.target.value)}
+                    placeholder={`Option ${option.id}`}
+                    className="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-l-lg bg-white dark:bg-gray-800"
+                    disabled={isCreating}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeOption(option.id)}
+                    disabled={options.length <= 2 || isCreating}
+                    className="px-3 bg-gray-100 dark:bg-gray-700 border-y border-r border-gray-300 dark:border-gray-700 rounded-r-lg text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              
+              {options.length < 6 && (
+                <Button
+                  type="button"
+                  onClick={addOption}
+                  disabled={isCreating}
+                  variant="ghost"
+                  className="mt-2 w-full border border-dashed border-gray-300 dark:border-gray-700"
+                >
+                  + Add Option
+                </Button>
+              )}
+            </div>
+            
+            <div className="mb-6">
+              <label htmlFor="deadline" className="block text-sm font-medium mb-1">
+                Poll Duration
+              </label>
+              <select
+                id="deadline"
+                value={daysUntilDeadline}
+                onChange={(e) => setDaysUntilDeadline(Number(e.target.value))}
+                className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
+                disabled={isCreating}
+              >
+                <option value={1}>1 day</option>
+                <option value={2}>2 days</option>
+                <option value={3}>3 days</option>
+                <option value={7}>1 week</option>
+                <option value={14}>2 weeks</option>
+                <option value={30}>1 month</option>
+              </select>
+            </div>
+            
             <Button
-              type="button"
-              onClick={addOption}
+              type="submit"
               disabled={isCreating}
-              variant="ghost"
-              className="mt-2 w-full border border-dashed border-gray-300 dark:border-gray-700"
+              isLoading={isCreating}
+              variant="secondary"
+              size="lg"
+              fullWidth
             >
-              + Add Option
+              Create Poll
             </Button>
-          )}
-        </div>
-        
-        <div className="mb-6">
-          <label htmlFor="deadline" className="block text-sm font-medium mb-1">
-            Poll Duration
-          </label>
-          <select
-            id="deadline"
-            value={daysUntilDeadline}
-            onChange={(e) => setDaysUntilDeadline(Number(e.target.value))}
-            className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
-            disabled={isCreating}
-          >
-            <option value={1}>1 day</option>
-            <option value={2}>2 days</option>
-            <option value={3}>3 days</option>
-            <option value={7}>1 week</option>
-            <option value={14}>2 weeks</option>
-            <option value={30}>1 month</option>
-          </select>
-        </div>
-        
-        <Button
-          type="submit"
-          disabled={isCreating}
-          isLoading={isCreating}
-          variant="secondary"
-          size="lg"
-          fullWidth
-        >
-          Create Poll
-        </Button>
-      </form>
+          </form>
+        </>
+      )}
     </div>
   );
 } 

@@ -31,7 +31,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
  * Reusable Button component
  */
-export default function Button({
+export function Button({
   children,
   className = "",
   variant = "primary",

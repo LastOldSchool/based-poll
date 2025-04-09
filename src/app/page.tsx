@@ -6,108 +6,66 @@ import CreatePollForm from "../components/poll/CreatePollForm";
 import PollCard from "../components/poll/PollCard";
 import Footer from "../components/Footer";
 import { usePoll } from "../hooks/usePoll";
-import { useAccount } from "wagmi";
-import { pollContract } from "../utils/contract";
-import { generatePrePollId, calculatePollId } from "../utils/poll-utils";
+import { getCreatedPolls, StoredPoll } from "../utils/localStorage";
+import { formatDate, isPollEnded } from "../utils/poll-utils";
+import { Button } from "../components/ui/button";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"vote" | "create">("vote");
-  const { pollData, isPollLoading, isPollError, setIsPollError, fetchPoll } = usePoll();
-  const { address } = useAccount();
-  const [voteResult, setVoteResult] = useState({ hasVoted: false, optionId: 0 });
-  const [isLoadingPoll, setIsLoadingPoll] = useState(false);
-
-  // Create a memoized function to fetch poll data to prevent recreating it on every render
-  const fetchPollData = useCallback(async () => {
-    if (isLoadingPoll) return; // Prevent concurrent requests
-    
-    setIsLoadingPoll(true);
-    try {
-      // Sample poll parameters - in a real app, these would come from an API or storage
-      const pollQuestion = "What is your favorite Base chain DApp?";
-      const options = [
-        "Decentralized Exchange",
-        "NFT Marketplace",
-        "DeFi Protocol",
-        "Social Media",
-        "Gaming",
-      ];
-      const deadline = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days from now
-      
-      // Generate prePollId from question
-      const prePollId = generatePrePollId(pollQuestion) as `0x${string}`;
-      const optionCount = options.length;
-      
-      // Try to calculate actual poll ID
-      try {
-        const actualPollId = await pollContract.calculateActualPollId(
-          prePollId,
-          optionCount,
-          deadline
-        );
-        
-        // Fetch the poll using the calculated ID
-        fetchPoll(actualPollId);
-      } catch (error) {
-        console.error("Failed to calculate poll ID dynamically:", error);
-        console.log("Using fallback approach with client-side calculation");
-        
-        // Use client-side calculation as fallback
-        const clientSideId = calculatePollId({ 
-          prePollId, 
-          optionCount, 
-          deadline 
-        });
-        
-        fetchPoll(clientSideId);
-      }
-    } catch (error) {
-      console.error("Failed to fetch poll data:", error);
-      setIsPollError(true);
-    } finally {
-      setIsLoadingPoll(false);
+  const { pollData, isPollLoading, isPollError, fetchPoll, getVoteResult } = usePoll();
+  const [userPolls, setUserPolls] = useState<StoredPoll[]>([]);
+  const [selectedPollId, setSelectedPollId] = useState<string | null>(null);
+  const [localLoading, setLocalLoading] = useState(false);
+  
+  // Create a memoized function to fetch polls from localStorage
+  const loadUserPolls = useCallback(() => {
+    const storedPolls = getCreatedPolls();
+    if (storedPolls.length > 0) {
+      // Sort by creation date descending (newest first)
+      const sortedPolls = storedPolls.sort((a, b) => b.createdAt - a.createdAt);
+      setUserPolls(sortedPolls);
     }
-  }, [fetchPoll, setIsPollError, isLoadingPoll]);
+  }, []);
 
-  // Fetch a poll on component mount (in a real app, this would use a router parameter)
+  // Load user polls from localStorage on component mount
   useEffect(() => {
-    fetchPollData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+    loadUserPolls();
+  }, [loadUserPolls]);
 
-  // Check if the user has voted when address or poll ID changes
-  // Add debounce to prevent too many calls
+  // Reload polls when activeTab changes to "vote"
   useEffect(() => {
-    if (!address || !pollData?.id) return;
-    
-    let isCancelled = false;
-    
-    const checkVote = async () => {
-      try {
-        // Check if effect is still valid
-        if (isCancelled) return;
-        
-        // Call contract to check if user has voted
-        const result = await pollContract.checkVote(pollData.id, address);
-        
-        // Check if effect is still valid before updating state
-        if (!isCancelled) {
-          setVoteResult(result);
-        }
-      } catch (error) {
-        console.error("Error checking vote:", error);
-      }
-    };
-    
-    // Delay the execution to prevent too many calls
-    const timeoutId = setTimeout(checkVote, 500);
-    
-    // Cleanup function to handle component unmount or dependencies change
-    return () => {
-      isCancelled = true;
-      clearTimeout(timeoutId);
-    };
-  }, [address, pollData?.id]);
+    if (activeTab === "vote") {
+      loadUserPolls();
+      // Clear selected poll when switching to vote tab
+      setSelectedPollId(null);
+    }
+  }, [activeTab, loadUserPolls]);
+
+  // Handle loading a specific poll
+  const handleLoadPoll = (pollId: string) => {
+    setSelectedPollId(pollId);
+    setLocalLoading(true);
+    fetchPoll(pollId as `0x${string}`);
+  };
+
+  // When poll data or loading status changes, update local loading state
+  useEffect(() => {
+    if (!isPollLoading && selectedPollId) {
+      // Allow a small delay for the UI to update
+      const timer = setTimeout(() => {
+        setLocalLoading(false);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [isPollLoading, selectedPollId, pollData]);
+
+  // Clear the selected poll
+  const handleBackToList = () => {
+    setSelectedPollId(null);
+  };
+
+  // Determine if we're in a loading state
+  const isLoading = isPollLoading || localLoading;
 
   return (
     <main className="flex min-h-screen flex-col bg-base-light dark:bg-base-dark">
@@ -156,20 +114,76 @@ export default function Home() {
       <section className="container mx-auto px-4 py-8">
         {activeTab === "vote" ? (
           <div className="max-w-lg mx-auto">
-            {isPollLoading ? (
+            {userPolls.length === 0 ? (
               <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
-                <p className="text-center">Loading poll data...</p>
+                <p className="text-center">No polls found. Create a poll to get started!</p>
               </div>
-            ) : isPollError ? (
-              <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
-                <p className="text-center text-red-500">Error loading poll data</p>
-              </div>
-            ) : !pollData ? (
-              <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
-                <p className="text-center">No poll data available</p>
+            ) : selectedPollId ? (
+              // Show selected poll details
+              <div className="space-y-4">
+                <button 
+                  onClick={handleBackToList}
+                  className="flex items-center text-base-blue hover:underline mb-4"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                  </svg>
+                  Back to polls
+                </button>
+                
+                {isLoading ? (
+                  <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
+                    <div className="flex flex-col items-center justify-center py-4">
+                      <div className="w-10 h-10 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mb-2"></div>
+                      <p className="text-center">Loading poll data...</p>
+                    </div>
+                  </div>
+                ) : isPollError ? (
+                  <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
+                    <p className="text-center text-red-500">Error loading poll data</p>
+                  </div>
+                ) : !pollData ? (
+                  <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
+                    <p className="text-center">No poll data available</p>
+                  </div>
+                ) : (
+                  <PollCard poll={pollData} voteResult={getVoteResult()} />
+                )}
               </div>
             ) : (
-              <PollCard poll={pollData} voteResult={voteResult} />
+              // Show list of polls
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold mb-4">Your Polls</h2>
+                
+                {userPolls.map((poll) => {
+                  const ended = isPollEnded(poll.deadline);
+                  const formattedDate = formatDate(poll.deadline);
+                  
+                  return (
+                    <div 
+                      key={poll.id} 
+                      className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <h3 className="font-medium text-lg mb-2">{poll.question}</h3>
+                      <div className="flex flex-wrap justify-between text-sm mb-3">
+                        <span className="text-gray-500 dark:text-gray-400">
+                          {ended ? "Ended on" : "Ends on"}: {formattedDate}
+                        </span>
+                        <span className="text-gray-500 dark:text-gray-400">
+                          {poll.options.length} options
+                        </span>
+                      </div>
+                      <Button
+                        onClick={() => handleLoadPoll(poll.id)}
+                        variant="outline"
+                        fullWidth
+                      >
+                        Load Poll Details
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         ) : (

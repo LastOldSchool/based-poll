@@ -7,17 +7,20 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "lint:contracts": "eslint contracts/test --ext .ts"
+    "lint:contracts": "eslint contracts/test --ext .ts",
+    "types:check": "tsc --noEmit"
   },
   "dependencies": {
     "@reown/appkit": "^1.7.2",
     "@reown/appkit-adapter-wagmi": "^1.7.2",
     "@tanstack/react-query": "^5.72.1",
     "@wagmi/core": "^2.16.7",
+    "lucide-react": "^0.487.0",
     "next": "15.2.4",
     "pino-pretty": "^13.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.2.0",
     "viem": "^2.26.2",
     "wagmi": "^2.14.16"
   },
