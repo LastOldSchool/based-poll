@@ -28,6 +28,9 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
       {poll.options.map((option, index) => {
         const voteCount = poll.voteCounts[index];
         const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+        
+        // The option index is 0-based but userVoteOptionId is 1-based
+        // So we need to check if userVoteOptionId equals index+1
         const isUserVote = userVoteOptionId === index + 1;
         
         return (
@@ -46,14 +49,29 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
               </div>
             </div>
             
-            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className={cn(
-                  "h-full rounded-full", 
-                  isUserVote ? "bg-primary" : "bg-gray-300"
-                )}
-                style={{ width: `${percentage}%` }}
-              />
+            {/* Pure inline style progress bar */}
+            <div style={{ 
+              height: '8px', 
+              width: '100%', 
+              backgroundColor: '#E5E7EB', 
+              borderRadius: '4px',
+              marginTop: '4px',
+              marginBottom: '4px',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {voteCount > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  height: '100%',
+                  width: `${percentage}%`,
+                  backgroundColor: isUserVote ? '#A855F7' : '#9CA3AF',
+                  borderRadius: '4px',
+                  minWidth: '4px'
+                }} />
+              )}
             </div>
           </div>
         );
