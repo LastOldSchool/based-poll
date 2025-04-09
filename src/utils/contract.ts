@@ -47,14 +47,15 @@ export const pollContract = {
   /**
    * Get poll details by poll ID
    * @param pollId - The actual poll ID
+   * @param force - Force fetching from blockchain, bypassing cache
    * @returns Poll data
    */
-  async getPoll(pollId: `0x${string}`): Promise<Poll | null> {
+  async getPoll(pollId: `0x${string}`, force = false): Promise<Poll | null> {
     const cacheKey = `getPoll-${pollId}`;
     const cachedData = cache[cacheKey];
     
-    // Return cached data if available and not expired
-    if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
+    // Return cached data if available and not expired, and not forcing a refresh
+    if (!force && cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
       return cachedData.data as Poll | null;
     }
     
@@ -112,14 +113,15 @@ export const pollContract = {
    * Check if a user has already voted in a poll
    * @param pollId - The actual poll ID
    * @param address - User's wallet address
+   * @param force - Force fetching from blockchain, bypassing cache
    * @returns Vote information
    */
-  async checkVote(pollId: `0x${string}`, address: `0x${string}`): Promise<{ hasVoted: boolean; optionId: number }> {
+  async checkVote(pollId: `0x${string}`, address: `0x${string}`, force = false): Promise<{ hasVoted: boolean; optionId: number }> {
     const cacheKey = `checkVote-${pollId}-${address}`;
     const cachedData = cache[cacheKey];
     
-    // Return cached data if available and not expired
-    if (cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
+    // Return cached data if available and not expired, and not forcing a refresh
+    if (!force && cachedData && Date.now() - cachedData.timestamp < CACHE_TTL) {
       return cachedData.data as { hasVoted: boolean; optionId: number };
     }
     

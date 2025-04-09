@@ -8,11 +8,12 @@ import { useAccount } from "wagmi";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { VoteOption } from "./VoteOption";
-import { CircleCheck, XCircle, Download } from "lucide-react";
+import { CircleCheck, XCircle, Download, MoreVertical, Eye, InfoIcon } from "lucide-react";
 import VoteResults from "./VoteResults";
 import { formatAddress } from "../../utils/reown";
 import { getCreatedPollById } from "../../utils/localStorage";
 import { exportPollToJson } from "../../utils/poll-utils";
+import PollSystemInfoModal from "./PollSystemInfoModal";
 
 interface PollCardProps {
   poll: Poll;
@@ -38,12 +39,30 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
   const [voteStatus, setVoteStatus] = useState<{ hasVoted: boolean; optionId: number }>(
     voteResult || { hasVoted: false, optionId: 0 }
   );
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [showSystemInfo, setShowSystemInfo] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const isMounted = useRef(true);
 
   // Set isMounted to false when component unmounts
   useEffect(() => {
     return () => {
       isMounted.current = false;
+    };
+  }, []);
+
+  // Handle click outside to close menu
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
@@ -63,7 +82,8 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
       // Since getVoteResult is now async, we need to handle it with an async function
       const fetchVoteStatus = async () => {
         try {
-          const result = await getVoteResult();
+          // Force a fresh fetch from the blockchain, bypassing any cache
+          const result = await getVoteResult(true);
           if (isMounted.current) { // Only update state if component is still mounted
             setVoteStatus(result);
           }
@@ -78,7 +98,13 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
       
       fetchVoteStatus();
     }
-  }, [poll, getVoteResult, address, voteResult]);
+
+    // Always refetch poll data from chain to get latest votes
+    // Force a fresh fetch from the blockchain, bypassing any cache
+    if (isMounted.current) {
+      refetchPoll(true);
+    }
+  }, [poll, getVoteResult, address, voteResult, refetchPoll]);
 
   const handleOptionSelect = (optionId: number) => {
     setSelectedOption(optionId);
@@ -148,110 +174,171 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
       // Clean up
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      
+      // Close menu after export
+      setMenuOpen(false);
     } catch (error) {
       console.error("Error exporting poll:", error);
       // You might want to show an error message to the user here
     }
   };
+  
+  const handleViewResults = () => {
+    setShowResults(true);
+    setMenuOpen(false);
+  };
+  
+  const handleViewSystemInfo = () => {
+    setShowSystemInfo(true);
+    setMenuOpen(false);
+  };
 
   return (
-    <Card className={`w-full max-w-md mx-auto overflow-hidden ${className}`}>
-      <CardHeader>
-        <CardTitle className="text-xl font-bold">{poll.question}</CardTitle>
-        <CardDescription>
-          {pollHasEnded ? (
-            <span className="text-red-500 flex items-center gap-1">
-              <XCircle className="h-4 w-4" />
-              Poll ended {formattedDeadline}
-            </span>
-          ) : (
-            <span 
-              className="text-gray-400 flex items-center gap-1" 
-              title={`Exact time remaining: ${exactDeadline}`}
-            >
-              <CircleCheck className="h-4 w-4" />
-              Poll ends {formattedDeadline}
-            </span>
-          )}
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="px-8">
-        {voteStatus.hasVoted ? (
-          <div className="relative">
-            <VoteResults poll={poll} userVoteOptionId={voteStatus.optionId} />
-          </div>
-        ) : !isConnected ? (
-          <div className="flex flex-col items-center justify-center py-4">
-            <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-lg w-full text-center">
-              <p>Please connect your wallet to vote in this poll.</p>
+    <>
+      <Card className={`w-full max-w-md mx-auto overflow-hidden ${className}`}>
+        <CardHeader className="relative">
+          <div className="absolute top-4 right-4 z-10">
+            <div className="relative" ref={menuRef}>
+              <button 
+                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                onClick={() => setMenuOpen(!menuOpen)}
+                aria-label="Poll options"
+              >
+                <MoreVertical className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+              </button>
+              
+              {menuOpen && (
+                <div className="absolute right-0 mt-1 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-20">
+                  <div className="py-1" role="menu" aria-orientation="vertical">
+                    {!voteStatus.hasVoted && !showResults && (
+                      <button
+                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={handleViewResults}
+                        role="menuitem"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Results
+                      </button>
+                    )}
+                    <button
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={handleExportPoll}
+                      role="menuitem"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Poll
+                    </button>
+                    <button
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={handleViewSystemInfo}
+                      role="menuitem"
+                    >
+                      <InfoIcon className="h-4 w-4 mr-2" />
+                      System Info
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <Button 
-              onClick={() => window.dispatchEvent(new CustomEvent('connect-wallet'))}
-              variant="primary"
-              fullWidth
+          </div>
+          <CardTitle className="text-xl font-bold">{poll.question}</CardTitle>
+          <CardDescription>
+            {pollHasEnded ? (
+              <span className="text-red-500 flex items-center gap-1">
+                <XCircle className="h-4 w-4" />
+                Poll ended {formattedDeadline}
+              </span>
+            ) : (
+              <span 
+                className="text-gray-400 flex items-center gap-1" 
+                title={`Exact time remaining: ${exactDeadline}`}
+              >
+                <CircleCheck className="h-4 w-4" />
+                Poll ends {formattedDeadline}
+              </span>
+            )}
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="px-8">
+          {voteStatus.hasVoted || showResults ? (
+            <div className="relative">
+              <VoteResults poll={poll} userVoteOptionId={voteStatus.optionId} />
+              {showResults && !voteStatus.hasVoted && (
+                <div className="mt-2 text-center text-sm text-gray-500">
+                  <p>Viewing results without voting</p>
+                </div>
+              )}
+            </div>
+          ) : !isConnected ? (
+            <div className="flex flex-col items-center justify-center py-4">
+              <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-lg w-full text-center">
+                <p>Please connect your wallet to vote in this poll.</p>
+              </div>
+              <Button 
+                onClick={() => window.dispatchEvent(new CustomEvent('connect-wallet'))}
+                variant="primary"
+                fullWidth
+              >
+                Connect Wallet
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {poll.options.map((option, index) => (
+                <VoteOption
+                  key={index}
+                  option={option}
+                  optionId={index + 1}
+                  isSelected={selectedOption === index + 1}
+                  onSelect={handleOptionSelect}
+                  disabled={isVoting || pollHasEnded}
+                />
+              ))}
+
+              {voteError && <div className="text-red-500 text-sm mt-2">{voteError}</div>}
+            </div>
+          )}
+        </CardContent>
+
+        <CardFooter className="flex flex-col px-8 pb-4 gap-2">
+          {!voteStatus.hasVoted && !showResults && !pollHasEnded && isConnected && (
+            <Button
+              className="w-full"
+              onClick={handleVoteSubmit}
+              disabled={!selectedOption || isVoting || !address || pollHasEnded}
             >
-              Connect Wallet
+              {isVoting ? "Submitting..." : "Vote"}
             </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {poll.options.map((option, index) => (
-              <VoteOption
-                key={index}
-                option={option}
-                optionId={index + 1}
-                isSelected={selectedOption === index + 1}
-                onSelect={handleOptionSelect}
-                disabled={isVoting || pollHasEnded}
-              />
-            ))}
+          )}
 
-            {voteError && <div className="text-red-500 text-sm mt-2">{voteError}</div>}
-          </div>
-        )}
-      </CardContent>
+          {(!voteStatus.hasVoted && !showResults && pollHasEnded) && (
+            <Button className="w-full" disabled>
+              Poll has ended
+            </Button>
+          )}
+          
+          {voteStatus.hasVoted && (
+            <div className="w-full text-center text-sm text-gray-500">
+              Thank you for voting!
+            </div>
+          )}
 
-      <CardFooter className="flex flex-col px-8 pb-4 gap-2">
-        {!voteStatus.hasVoted && !pollHasEnded && isConnected && (
-          <Button
-            className="w-full"
-            onClick={handleVoteSubmit}
-            disabled={!selectedOption || isVoting || !address || pollHasEnded}
-          >
-            {isVoting ? "Submitting..." : "Vote"}
-          </Button>
-        )}
-
-        {(!voteStatus.hasVoted && pollHasEnded) && (
-          <Button className="w-full" disabled>
-            Poll has ended
-          </Button>
-        )}
-        
-        {voteStatus.hasVoted && (
-          <div className="w-full text-center text-sm text-gray-500">
-            Thank you for voting!
-          </div>
-        )}
-
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-2"
-          onClick={handleExportPoll}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Export Poll
-        </Button>
-
-        {isConnected && address && (
-          <div className="w-full text-center text-xs font-mono text-base-purple mt-2">
-            {formatAddress(address)}
-          </div>
-        )}
-      </CardFooter>
-    </Card>
+          {isConnected && address && (
+            <div className="w-full text-center text-xs font-mono text-base-purple mt-2">
+              {formatAddress(address)}
+            </div>
+          )}
+        </CardFooter>
+      </Card>
+      
+      {/* System Info Modal */}
+      <PollSystemInfoModal
+        poll={poll}
+        isOpen={showSystemInfo}
+        onClose={() => setShowSystemInfo(false)}
+      />
+    </>
   );
 }
 

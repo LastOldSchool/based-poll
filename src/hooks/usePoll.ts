@@ -34,29 +34,73 @@ export function usePoll() {
     }
   }, [pollId, address]); // Add address as a dependency to re-check when wallet changes
 
-  const refetchPoll = useCallback(async () => {
+  const refetchPoll = useCallback(async (forceFetch = false) => {
     if (!pollId) return;
     
     setIsPollLoading(true);
     try {
-      // Try to get the poll from contract
-      const data = await pollContract.getPoll(pollId);
+      // Get the stored poll data to calculate the correct contract ID
+      const localPoll = getCreatedPollById(pollId);
+      let contractPollId = pollId;
+      let contractData = null;
       
-      // Get all local votes for this poll to calculate totals
-      const allVotes = getAllVotesForPoll(pollId);
+      // If we have local data with prePollId, calculate the correct contract ID
+      if (localPoll?.prePollId) {
+        const params = {
+          prePollId: localPoll.prePollId as `0x${string}`,
+          optionCount: localPoll.optionCount,
+          deadline: localPoll.deadline
+        };
+        
+        try {
+          // Calculate the ID as it would be on the contract
+          const calculatedId = calculatePollId(params);
+          
+          // If different from our stored ID, check the contract with this ID
+          if (calculatedId !== pollId) {
+            contractPollId = calculatedId;
+            // Try to get data using the calculated contract poll ID
+            contractData = await pollContract.getPoll(calculatedId, forceFetch);
+          }
+        } catch (error) {
+          console.error("Error calculating contract poll ID:", error);
+        }
+      }
+      
+      // If we haven't found data with the calculated ID, try with the stored ID
+      if (!contractData) {
+        contractData = await pollContract.getPoll(pollId, forceFetch);
+      }
       
       // Check if we have data from the contract
-      if (data) {
-        // If contract data is valid, use it
-        setPollData(data);
+      if (contractData && contractData.exists) {
+        // If we got contract data, use it but make sure to keep the question and options
+        const enhancedData: Poll = {
+          ...contractData,
+          question: localPoll?.question || "Unknown Question",
+          options: localPoll?.options || Array(contractData.optionCount).fill("Option")
+        };
+        
+        // Store the correct ID for future reference
+        if (contractPollId !== pollId && localPoll) {
+          const updatedPoll: StoredPoll = {
+            ...localPoll,
+            id: contractPollId as string
+          };
+          saveCreatedPoll(updatedPoll);
+        }
+        
+        setPollData(enhancedData);
         setIsPollError(false);
         setIsPollLoading(false);
         return;
       }
       
       // If no contract data but have localStorage data
-      const localPoll = getCreatedPollById(pollId);
       if (localPoll) {
+        // Get all local votes for this poll to calculate totals
+        const allVotes = getAllVotesForPoll(pollId);
+        
         // Create local poll data with all local votes combined
         const voteCounts = new Array(localPoll.optionCount).fill(0);
         
@@ -267,14 +311,46 @@ export function usePoll() {
   /**
    * Get vote result from blockchain or localStorage as fallback
    * Tries to get vote data from the chain first, then falls back to localStorage
+   * @param force - Force fetching from blockchain, bypassing cache
    */
-  const getVoteResult = useCallback(async () => {
+  const getVoteResult = useCallback(async (force = false) => {
     if (!pollData || !address) return { hasVoted: false, optionId: 0 };
     
     try {
-      // First try to get vote information from the blockchain
+      // First check if we need to calculate a different contract poll ID
+      const localPoll = getCreatedPollById(pollData.id);
+      let contractPollId = pollData.id;
+      
+      if (localPoll?.prePollId) {
+        // Calculate the ID that would be used on the contract
+        const params = {
+          prePollId: localPoll.prePollId as `0x${string}`,
+          optionCount: localPoll.optionCount,
+          deadline: localPoll.deadline
+        };
+        
+        try {
+          const calculatedId = calculatePollId(params);
+          if (calculatedId !== pollData.id) {
+            contractPollId = calculatedId;
+          }
+        } catch (error) {
+          console.error("Error calculating contract poll ID in getVoteResult:", error);
+        }
+      }
+      
+      // Try to get vote information from the blockchain
       if (pollContract.checkVote) {
-        const blockchainVote = await pollContract.checkVote(pollData.id, address as `0x${string}`);
+        // First check with the contract-calculated ID
+        if (contractPollId !== pollData.id) {
+          const blockchainVote = await pollContract.checkVote(contractPollId, address as `0x${string}`, force);
+          if (blockchainVote.hasVoted) {
+            return blockchainVote;
+          }
+        }
+        
+        // Then check with the stored ID
+        const blockchainVote = await pollContract.checkVote(pollData.id, address as `0x${string}`, force);
         if (blockchainVote.hasVoted) {
           return blockchainVote;
         }

@@ -80,6 +80,15 @@ export default function Home() {
     setSelectedPollId(pollId);
     setLocalLoading(true);
     fetchPoll(pollId as `0x${string}`);
+    
+    // Force a vote result refresh after a short delay to ensure the poll data is loaded
+    setTimeout(() => {
+      if (getVoteResult) {
+        getVoteResult(true).then(result => {
+          setCurrentVoteResult(result);
+        });
+      }
+    }, 300);
   };
 
   // When poll data or loading status changes, update local loading state

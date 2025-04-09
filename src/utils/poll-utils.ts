@@ -1,4 +1,4 @@
-import { keccak256, stringToHex, toBytes } from "viem";
+import { keccak256, stringToHex, toBytes, encodeAbiParameters, parseAbiParameters } from "viem";
 import { PollParams } from "./types";
 import { StoredPoll } from "./localStorage";
 
@@ -58,14 +58,27 @@ export function calculatePercentage(voteCount: number, totalVotes: number): numb
  * @returns The calculated poll ID
  */
 export function calculatePollId(params: PollParams): `0x${string}` {
-  const encoded = toBytes(
-    JSON.stringify({
-      prePollId: params.prePollId,
-      optionCount: params.optionCount,
-      deadline: params.deadline
-    })
-  );
-  return keccak256(encoded);
+  try {
+    // Match the contract's calculateActualPollId function which uses abi.encode
+    return keccak256(
+      encodeAbiParameters(
+        parseAbiParameters("bytes32, uint8, uint256"),
+        [params.prePollId, params.optionCount, BigInt(params.deadline)]
+      )
+    );
+  } catch (error) {
+    console.error("Error calculating poll ID:", error);
+    
+    // Fallback to the previous method if the new one fails
+    const encoded = toBytes(
+      JSON.stringify({
+        prePollId: params.prePollId,
+        optionCount: params.optionCount,
+        deadline: params.deadline
+      })
+    );
+    return keccak256(encoded);
+  }
 }
 
 /**
