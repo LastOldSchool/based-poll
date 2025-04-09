@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Poll } from "../../utils/types";
-import { usePoll } from "../../hooks/usePoll";
-import { formatDeadline } from "../../utils/time-utils";
+import { Poll } from '@/utils/types';
+import { usePoll } from '@/hooks/usePoll';
+import { formatDeadline, formatDeadlineExact } from "../../utils/time-utils";
 import { useAccount } from "wagmi";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
@@ -32,6 +32,7 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
   const [voteError, setVoteError] = useState<string | null>(null);
   const [pollHasEnded, setPollHasEnded] = useState(false);
   const [formattedDeadline, setFormattedDeadline] = useState("");
+  const [exactDeadline, setExactDeadline] = useState("");
   const [voteStatus, setVoteStatus] = useState<{ hasVoted: boolean; optionId: number }>(
     voteResult || { hasVoted: false, optionId: 0 }
   );
@@ -47,6 +48,7 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
   useEffect(() => {
     // Format the deadline each time it updates
     setFormattedDeadline(formatDeadline(poll.deadline));
+    setExactDeadline(formatDeadlineExact(poll.deadline));
 
     // Check if poll has ended
     const now = Math.floor(Date.now() / 1000);
@@ -129,7 +131,10 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
               Poll ended {formattedDeadline}
             </span>
           ) : (
-            <span className="text-green-500 flex items-center gap-1">
+            <span 
+              className="text-gray-400 flex items-center gap-1" 
+              title={`Exact time remaining: ${exactDeadline}`}
+            >
               <CircleCheck className="h-4 w-4" />
               Poll ends {formattedDeadline}
             </span>
@@ -139,11 +144,7 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
 
       <CardContent className="px-8">
         {voteStatus.hasVoted ? (
-          <div>
-            <div className="mb-4 p-2 bg-green-50 text-green-700 rounded-md flex items-center gap-2">
-              <CircleCheck className="h-5 w-5" />
-              <span>You voted for option {voteStatus.optionId}</span>
-            </div>
+          <div className="relative">
             <VoteResults poll={poll} userVoteOptionId={voteStatus.optionId} />
           </div>
         ) : !isConnected ? (

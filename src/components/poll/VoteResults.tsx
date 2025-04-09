@@ -34,14 +34,29 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
         const isUserVote = userVoteOptionId === index + 1;
         
         return (
-          <div key={index} className="space-y-1">
+          <div 
+            key={index} 
+            className={cn(
+              "space-y-1 relative",
+              isUserVote && "p-3 my-2 rounded-md"
+            )}
+          >
+            {/* Add a background highlight for user's vote */}
+            {isUserVote && (
+              <div className="absolute inset-0 -z-10 bg-green-50 dark:bg-green-900/10 rounded-md border border-green-200 dark:border-green-800/30"></div>
+            )}
+            
             <div className="flex justify-between items-center">
               <div className="flex items-center">
                 <span className={cn(
                   "font-medium",
-                  isUserVote ? "text-primary" : "text-gray-700"
+                  isUserVote ? "text-green-700" : "text-gray-700"
                 )}>
-                  {option} {isUserVote && "(Your vote)"}
+                  {option} {isUserVote && (
+                    <span className="inline-flex items-center ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Your vote
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="text-sm text-gray-500">
@@ -67,9 +82,10 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
                   left: 0,
                   height: '100%',
                   width: `${percentage}%`,
-                  backgroundColor: isUserVote ? '#A855F7' : '#9CA3AF',
+                  backgroundColor: isUserVote ? '#10B981' : '#9CA3AF',
                   borderRadius: '4px',
-                  minWidth: '4px'
+                  minWidth: '4px',
+                  boxShadow: isUserVote ? '0 0 8px rgba(16, 185, 129, 0.5)' : 'none'
                 }} />
               )}
             </div>
