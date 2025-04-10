@@ -3,9 +3,9 @@
 import React from "react";
 import { Modal } from "../ui/modal";
 import { Poll } from "@/utils/types";
-import { pollContract } from "../../utils/contract";
+import { pollContract } from '@/utils/contract';
 import { useAccount } from "wagmi";
-import { calculatePollId } from "../../utils/poll-utils";
+import { calculatePollId } from '@/utils/poll-utils';
 
 /**
  * PollSystemInfoModal component props
@@ -29,7 +29,6 @@ export function PollSystemInfoModal({ poll, isOpen, onClose, prePollId }: PollSy
   const [isPollCreated, setIsPollCreated] = React.useState<boolean | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [contractPollId, setContractPollId] = React.useState<string | null>(null);
-  const [idMatch, setIdMatch] = React.useState<boolean>(false);
   
   // Check if the poll exists on the blockchain and calculate the ID according to contract
   React.useEffect(() => {
@@ -48,7 +47,6 @@ export function PollSystemInfoModal({ poll, isOpen, onClose, prePollId }: PollSy
           
           const calculatedId = calculatePollId(params);
           setContractPollId(calculatedId);
-          setIdMatch(calculatedId === poll.id);
           
           // Check if poll exists on blockchain using the calculated ID
           const pollData = await pollContract.getPoll(calculatedId, true);
@@ -68,27 +66,52 @@ export function PollSystemInfoModal({ poll, isOpen, onClose, prePollId }: PollSy
     
     checkPollInfo();
   }, [poll.id, isOpen, prePollId, poll.optionCount, poll.deadline]);
+
+  /**
+   * Copy text to clipboard
+   */
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+      .catch(error => console.error("Failed to copy text:", error));
+  };
   
   return (
     <Modal title="Poll System Information" isOpen={isOpen} onClose={onClose}>
       <div className="space-y-4">
         <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded-md">
-          <h4 className="font-semibold mb-2">Stored Poll ID</h4>
-          <p className="break-all font-mono text-xs">{poll.id}</p>
-          
-          {contractPollId && contractPollId !== poll.id && (
-            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-red-500 dark:text-red-400 text-xs mb-1">
-                ID mismatch detected! The contract would use:
-              </p>
-              <p className="break-all font-mono text-xs">{contractPollId}</p>
-            </div>
-          )}
+          <div className="flex justify-between items-start">
+            <h4 className="font-semibold mb-2">Poll ID</h4>
+            <button 
+              onClick={() => copyToClipboard(isPollCreated && contractPollId ? contractPollId : poll.id)}
+              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded transition-colors"
+              title="Copy ID"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" 
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+          </div>
+          <p className="break-all font-mono text-xs">{isPollCreated && contractPollId ? contractPollId : poll.id}</p>
         </div>
         
         {prePollId && (
           <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded-md">
-            <h4 className="font-semibold mb-2">Pre-Poll ID</h4>
+            <div className="flex justify-between items-start">
+              <h4 className="font-semibold mb-2">Pre-Poll ID</h4>
+              <button 
+                onClick={() => copyToClipboard(prePollId)}
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded transition-colors"
+                title="Copy Pre-Poll ID"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" 
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+            </div>
             <p className="break-all font-mono text-xs">{prePollId}</p>
           </div>
         )}
@@ -112,20 +135,10 @@ export function PollSystemInfoModal({ poll, isOpen, onClose, prePollId }: PollSy
           ) : isPollCreated ? (
             <div>
               <p className="text-green-600 dark:text-green-400">Poll exists on blockchain</p>
-              {!idMatch && (
-                <p className="text-yellow-600 dark:text-yellow-400 text-xs mt-1">
-                  Note: The poll exists but under a different ID
-                </p>
-              )}
             </div>
           ) : (
             <div>
               <p className="text-red-600 dark:text-red-400">Poll does not exist on blockchain</p>
-              {contractPollId && (
-                <p className="text-yellow-600 dark:text-yellow-400 text-xs mt-1">
-                  Check may be using incorrect ID. Try checking the contract with ID shown above.
-                </p>
-              )}
             </div>
           )}
         </div>
