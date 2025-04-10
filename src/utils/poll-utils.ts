@@ -1,6 +1,5 @@
 import { keccak256, stringToHex, toBytes, encodeAbiParameters, parseAbiParameters } from "viem";
-import { PollParams } from "./types";
-import { StoredPoll } from "./localStorage";
+import { PollParams, StoredPoll } from "./types";
 
 /**
  * Generate a pre-poll ID from a question

@@ -44,3 +44,16 @@ export interface CreatePollInput {
   options: string[];
   deadline: Date;
 }
+
+/**
+ * Interface for poll data (was previously stored in localStorage)
+ */
+export interface StoredPoll {
+  id: string;
+  prePollId: string;
+  question: string;
+  options: { id: number; text: string }[];
+  deadline: number;
+  optionCount: number;
+  createdAt: number;
+}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePoll } from '@/hooks/usePoll';
 import { useAccount } from "wagmi";
-import { Button } from "../ui/button";
+import { Button } from "../ui/Button";
 
 interface Option {
   id: number;

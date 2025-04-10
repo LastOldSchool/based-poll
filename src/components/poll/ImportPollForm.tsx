@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Button } from "../ui/button";
+import { Button } from "../ui/Button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { importPollFromJson } from "../../utils/poll-utils";
-import { saveCreatedPoll, getCreatedPollById } from "../../utils/localStorage";
 import { Upload, CheckCircle, AlertCircle } from "lucide-react";
+import { StoredPoll } from "@/utils/types";
 
 /**
  * Status of the import operation
@@ -16,7 +16,7 @@ type ImportStatus = "idle" | "success" | "error";
  * ImportPollForm component props
  */
 interface ImportPollFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (importedPoll: StoredPoll) => void;
 }
 
 /**
@@ -55,21 +55,13 @@ export function ImportPollForm({ onSuccess }: ImportPollFormProps) {
         const jsonContent = e.target?.result as string;
         const importedPoll = importPollFromJson(jsonContent);
         
-        // Check if poll already exists
-        const existingPoll = getCreatedPollById(importedPoll.id);
-        
-        // Save the poll
-        saveCreatedPoll(importedPoll);
-        
         // Set success message
         setImportStatus("success");
-        setStatusMessage(existingPoll 
-          ? `Poll "${importedPoll.question}" updated successfully` 
-          : `Poll "${importedPoll.question}" imported successfully`);
+        setStatusMessage(`Poll "${importedPoll.question}" imported successfully`);
         
         // Call onSuccess callback if provided
         if (onSuccess) {
-          onSuccess();
+          onSuccess(importedPoll);
         }
       } catch (error) {
         setImportStatus("error");

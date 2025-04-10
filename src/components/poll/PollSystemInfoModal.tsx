@@ -3,7 +3,6 @@
 import React from "react";
 import { Modal } from "../ui/modal";
 import { Poll } from "@/utils/types";
-import { getCreatedPollById } from "../../utils/localStorage";
 import { pollContract } from "../../utils/contract";
 import { useAccount } from "wagmi";
 import { calculatePollId } from "../../utils/poll-utils";
@@ -18,34 +17,33 @@ interface PollSystemInfoModalProps {
   isOpen: boolean;
   /** Callback when modal is closed */
   onClose: () => void;
+  /** Pre-poll ID if available */
+  prePollId?: string;
 }
 
 /**
  * Component for displaying system info about a poll in a modal
  */
-export function PollSystemInfoModal({ poll, isOpen, onClose }: PollSystemInfoModalProps) {
+export function PollSystemInfoModal({ poll, isOpen, onClose, prePollId }: PollSystemInfoModalProps) {
   const { address } = useAccount();
   const [isPollCreated, setIsPollCreated] = React.useState<boolean | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [contractPollId, setContractPollId] = React.useState<string | null>(null);
   const [idMatch, setIdMatch] = React.useState<boolean>(false);
-
-  // Get the full stored poll data including prePollId
-  const storedPoll = getCreatedPollById(poll.id);
   
   // Check if the poll exists on the blockchain and calculate the ID according to contract
   React.useEffect(() => {
-    if (!isOpen || !storedPoll) return;
+    if (!isOpen) return;
     
     const checkPollInfo = async () => {
       setIsLoading(true);
       try {
         // Calculate the poll ID using the contract's method
-        if (storedPoll.prePollId) {
+        if (prePollId) {
           const params = {
-            prePollId: storedPoll.prePollId as `0x${string}`,
-            optionCount: storedPoll.optionCount,
-            deadline: storedPoll.deadline
+            prePollId: prePollId as `0x${string}`,
+            optionCount: poll.optionCount,
+            deadline: poll.deadline
           };
           
           const calculatedId = calculatePollId(params);
@@ -69,7 +67,7 @@ export function PollSystemInfoModal({ poll, isOpen, onClose }: PollSystemInfoMod
     };
     
     checkPollInfo();
-  }, [poll.id, isOpen, storedPoll]);
+  }, [poll.id, isOpen, prePollId, poll.optionCount, poll.deadline]);
   
   return (
     <Modal title="Poll System Information" isOpen={isOpen} onClose={onClose}>
@@ -88,10 +86,10 @@ export function PollSystemInfoModal({ poll, isOpen, onClose }: PollSystemInfoMod
           )}
         </div>
         
-        {storedPoll?.prePollId && (
+        {prePollId && (
           <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded-md">
             <h4 className="font-semibold mb-2">Pre-Poll ID</h4>
-            <p className="break-all font-mono text-xs">{storedPoll.prePollId}</p>
+            <p className="break-all font-mono text-xs">{prePollId}</p>
           </div>
         )}
         

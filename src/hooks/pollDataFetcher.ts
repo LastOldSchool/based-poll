@@ -1,12 +1,11 @@
 "use client";
 
-import { getCreatedPollById, StoredPoll } from "@/utils/localStorage";
-import { calculatePollId } from "@/utils/poll-utils";
+import { StoredPoll } from "@/utils/types";
 import { pollContract } from "@/utils/contract";
 import { Poll, PollOption } from "@/utils/types";
 
 /**
- * Fetches poll data from blockchain or local storage
+ * Fetches poll data from blockchain
  * @param pollId - ID of the poll to fetch
  * @param makeChainRequest - Function to make a deduplicated chain request
  * @param forceFetch - Whether to force fetching from blockchain, bypassing cache
@@ -18,30 +17,7 @@ export async function fetchPollData(
   forceFetch = false
 ): Promise<{ pollData: Poll | null; isPollError: boolean }> {
   try {
-    // Get stored poll data
-    const localPoll = getCreatedPollById(pollId);
-    let contractPollId = pollId;
-    
-    // If we have local data with prePollId, calculate the correct contract ID
-    if (localPoll?.prePollId) {
-      const params = {
-        prePollId: localPoll.prePollId as `0x${string}`,
-        optionCount: localPoll.optionCount,
-        deadline: localPoll.deadline
-      };
-      
-      try {
-        // Calculate the ID as it would be on the contract
-        const calculatedId = calculatePollId(params);
-        
-        // If different from our stored ID, update
-        if (calculatedId !== pollId) {
-          contractPollId = calculatedId;
-        }
-      } catch (error) {
-        console.error("Error calculating contract poll ID:", error);
-      }
-    }
+    const contractPollId = pollId;
     
     // Fetch data from blockchain
     const contractData = await makeChainRequest(
@@ -56,38 +32,14 @@ export async function fetchPollData(
         .fill(0)
         .map((_, i) => ({ id: i + 1, text: `Option ${i + 1}` }));
       
-      // Combine blockchain data with local metadata
+      // Use blockchain data with default options
       const enhancedData: Poll = {
         ...contractData,
-        question: localPoll?.question || "Unknown Question",
-        options: localPoll?.options || defaultOptions
+        question: "Unknown Question",
+        options: defaultOptions
       };
-      
-      // Update stored poll if needed
-      if (contractPollId !== pollId && localPoll) {
-        const updatedPoll: StoredPoll = {
-          ...localPoll,
-          id: contractPollId as string
-        };
-        saveCreatedPoll(updatedPoll);
-      }
       
       return { pollData: enhancedData, isPollError: false };
-    }
-    
-    // Fallback to local data if available
-    if (localPoll) {
-      const localPollData: Poll = {
-        id: localPoll.id as `0x${string}`,
-        question: localPoll.question,
-        options: localPoll.options,
-        deadline: localPoll.deadline,
-        voteCounts: new Array(localPoll.optionCount).fill(0),
-        optionCount: localPoll.optionCount,
-        exists: true
-      };
-      
-      return { pollData: localPollData, isPollError: false };
     }
     
     // No data available
@@ -95,25 +47,7 @@ export async function fetchPollData(
     
   } catch (error) {
     console.error("Error fetching poll:", error);
-    
-    // Try to get the poll from localStorage as fallback
-    const localPoll = getCreatedPollById(pollId);
-    
-    if (localPoll) {
-      const localPollData: Poll = {
-        id: localPoll.id as `0x${string}`,
-        question: localPoll.question,
-        options: localPoll.options,
-        deadline: localPoll.deadline,
-        voteCounts: new Array(localPoll.optionCount).fill(0),
-        optionCount: localPoll.optionCount,
-        exists: true
-      };
-      
-      return { pollData: localPollData, isPollError: false };
-    } else {
-      return { pollData: null, isPollError: true };
-    }
+    return { pollData: null, isPollError: true };
   }
 }
 
@@ -134,27 +68,7 @@ export async function getVoteResult(
   if (!pollData || !address) return { hasVoted: false, optionId: 0 };
   
   try {
-    // Get stored poll data to calculate correct poll ID
-    const storedPoll = getCreatedPollById(pollData.id);
-    let contractPollId = pollData.id;
-    
-    // If we have local data with prePollId, calculate accurate poll ID
-    if (storedPoll?.prePollId) {
-      const params = {
-        prePollId: storedPoll.prePollId as `0x${string}`,
-        optionCount: storedPoll.optionCount,
-        deadline: storedPoll.deadline
-      };
-      
-      try {
-        const calculatedId = calculatePollId(params);
-        if (calculatedId !== pollData.id) {
-          contractPollId = calculatedId;
-        }
-      } catch (error) {
-        console.error("Error calculating contract poll ID in getVoteResult:", error);
-      }
-    }
+    const contractPollId = pollData.id;
     
     // Format the poll ID to ensure it's a valid hex string
     const formattedPollId = contractPollId.startsWith('0x') 

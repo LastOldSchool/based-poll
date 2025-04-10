@@ -78,12 +78,32 @@ export function usePoll() {
 
   /**
    * Vote on a poll
-   * @param pollId - ID of the poll to vote on
+   * @param votePollId - ID of the poll to vote on
    * @param optionId - ID of the option to vote for (1-based)
+   * @param prePollId - Pre-poll ID used to calculate the actual poll ID
+   * @param optionCount - Number of options in the poll
+   * @param deadline - Poll deadline timestamp
    * @returns Promise resolving to transaction hash
    */
-  const vote = async (votePollId: string, optionId: number) => {
+  const vote = async (
+    votePollId: string, 
+    optionId: number,
+    prePollId?: string,
+    optionCount?: number,
+    deadline?: number
+  ) => {
     const currentPollId = pollId; // Capture current value to use in callback
+    
+    if (!prePollId || !optionCount || !deadline) {
+      if (!pollData) {
+        throw new Error("Poll data required for voting");
+      }
+      
+      // Use defaults from pollData if not provided
+      prePollId = prePollId || "";
+      optionCount = optionCount || pollData.optionCount;
+      deadline = deadline || pollData.deadline;
+    }
     
     return await voteAction(
       address,
@@ -91,6 +111,9 @@ export function usePoll() {
       walletClient,
       votePollId,
       optionId,
+      prePollId,
+      optionCount,
+      deadline,
       async () => {
         // After successful vote, immediately refetch poll data
         if (votePollId === currentPollId) {

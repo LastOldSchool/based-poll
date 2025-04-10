@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { formatAddress } from '@/utils/reown';
 import { useAppKit, useAppKitAccount } from "@reown/appkit/react";
-import { Button } from "./ui/button";
+import { Button } from "./ui/Button";
 
 /**
  * Wallet connection component using Reown AppKit

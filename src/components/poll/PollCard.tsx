@@ -11,7 +11,6 @@ import { VoteOption } from "./VoteOption";
 import { CircleCheck, MoreVertical, Eye, InfoIcon, Download } from "lucide-react";
 import VoteResults from "./VoteResults";
 import { formatAddress } from '@/utils/reown';
-import { getCreatedPollById } from '@/utils/localStorage';
 import { exportPollToJson } from '@/utils/poll-utils';
 import PollSystemInfoModal from "./PollSystemInfoModal";
 
@@ -20,6 +19,8 @@ interface PollCardProps {
   className?: string;
   voteResult?: { hasVoted: boolean; optionId: number };
   onVoteSuccess?: () => void;
+  /** Pre-poll ID used to calculate the poll ID */
+  prePollId?: string;
 }
 
 /**
@@ -28,12 +29,14 @@ interface PollCardProps {
  * @param className - Optional CSS class name
  * @param voteResult - Optional vote result data
  * @param onVoteSuccess - Optional callback function called after successful vote
+ * @param prePollId - Optional pre-poll ID
  */
 export function PollCard({ 
   poll, 
   className = "", 
   voteResult,
-  onVoteSuccess
+  onVoteSuccess,
+  prePollId
 }: PollCardProps) {
   const { vote, refetchPoll } = usePoll();
   const { address, isConnected } = useAccount();
@@ -124,7 +127,7 @@ export function PollCard({
     setVoteError(null);
 
     try {
-      await vote(poll.id, selectedOption);
+      await vote(poll.id, selectedOption, prePollId, poll.optionCount, poll.deadline);
       
       // Show results after successful vote
       setShowResults(true);
@@ -143,15 +146,19 @@ export function PollCard({
 
   const handleExportPoll = () => {
     try {
-      // Get the full stored poll data including prePollId
-      const storedPoll = getCreatedPollById(poll.id);
-      
-      if (!storedPoll) {
-        throw new Error("Poll data not found in local storage");
-      }
+      // Create a simplistic export without localStorage data
+      const exportablePoll = {
+        id: poll.id,
+        prePollId: prePollId || "",
+        question: poll.question,
+        options: poll.options,
+        deadline: poll.deadline,
+        optionCount: poll.optionCount,
+        createdAt: Math.floor(Date.now() / 1000)
+      };
       
       // Convert poll to JSON
-      const pollJson = exportPollToJson(storedPoll);
+      const pollJson = exportPollToJson(exportablePoll);
       
       // Create a blob and download link
       const blob = new Blob([pollJson], { type: "application/json" });
@@ -351,9 +358,10 @@ export function PollCard({
       
       {showSystemInfo && (
         <PollSystemInfoModal
-          poll={poll} 
-          isOpen={showSystemInfo} 
-          onClose={() => setShowSystemInfo(false)} 
+          poll={poll}
+          isOpen={showSystemInfo}
+          onClose={() => setShowSystemInfo(false)}
+          prePollId={prePollId}
         />
       )}
     </>

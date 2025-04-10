@@ -1,9 +1,8 @@
 import { pollContract } from './contract';
-import { getCreatedPollById } from "./localStorage";
 import { Poll, PollOption } from "./types";
 
 /**
- * Fetches poll data from the blockchain or local storage
+ * Fetches poll data from the blockchain
  * @param pollId The ID of the poll to fetch
  * @returns Poll data or null if not found
  */
@@ -13,35 +12,29 @@ export const fetchPollData = async (pollId: `0x${string}`): Promise<Poll | null>
     const contractPoll = await pollContract.getPoll(pollId, true);
     
     if (!contractPoll || !contractPoll.exists) {
-      // Try to get from local storage if not found on blockchain
-      return fetchPollFromLocalStorage(pollId);
+      return null;
     }
-    
-    // Get local poll data for additional metadata
-    const localPoll = getCreatedPollById(pollId);
     
     // Create formatted poll object
     const poll: Poll = {
       id: pollId,
-      question: localPoll?.question || "Unknown Question",
+      question: "Unknown Question", // Default question when no metadata available
       deadline: contractPoll.deadline,
       voteCounts: contractPoll.voteCounts,
       optionCount: contractPoll.optionCount,
       exists: contractPoll.exists,
-      options: localPoll?.options || createDefaultOptions(contractPoll.optionCount)
+      options: createDefaultOptions(contractPoll.optionCount)
     };
 
     return poll;
   } catch (error) {
     console.error("Error fetching poll data:", error);
-    
-    // Attempt to recover from local storage as a fallback
-    return fetchPollFromLocalStorage(pollId);
+    return null;
   }
 };
 
 /**
- * Create default options array when no local data is available
+ * Create default options array when no metadata is available
  * @param optionCount Number of options to create
  * @returns Array of PollOption objects
  */
@@ -52,29 +45,6 @@ function createDefaultOptions(optionCount: number): PollOption[] {
       id: index + 1,
       text: `Option ${index + 1}`
     }));
-}
-
-/**
- * Fetch poll data from local storage
- * @param pollId The ID of the poll to fetch
- * @returns Poll data or null if not found
- */
-function fetchPollFromLocalStorage(pollId: `0x${string}`): Poll | null {
-  const localPoll = getCreatedPollById(pollId);
-  
-  if (!localPoll) {
-    return null;
-  }
-  
-  return {
-    id: pollId,
-    question: localPoll.question,
-    deadline: localPoll.deadline,
-    voteCounts: new Array(localPoll.optionCount).fill(0),
-    optionCount: localPoll.optionCount,
-    exists: true,
-    options: localPoll.options
-  };
 }
 
 /**
