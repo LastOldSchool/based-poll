@@ -232,7 +232,7 @@ export function PollCard({
 
   return (
     <>
-      <Card className={`w-full max-w-md mx-auto overflow-hidden ${className}`}>
+      <Card className={`w-full max-w-md mx-auto overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 ${className}`}>
         <CardHeader className="relative">
           <div className="absolute top-4 right-4 z-10">
             <div className="relative" ref={menuRef}>
@@ -245,136 +245,161 @@ export function PollCard({
               </button>
               
               {menuOpen && (
-                <div className="absolute right-0 mt-1 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-20">
+                <div className="absolute right-0 mt-1 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 z-20">
                   <div className="py-1" role="menu" aria-orientation="vertical">
                     {!voteStatus.hasVoted && !showResults && (
                       <button
-                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        onClick={handleViewResults}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         role="menuitem"
+                        onClick={handleViewResults}
                       >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Results
+                        <span className="flex items-center">
+                          <Eye className="mr-2 h-4 w-4" />
+                          View Results
+                        </span>
                       </button>
                     )}
                     <button
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={handleExportPoll}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       role="menuitem"
+                      onClick={handleExportPoll}
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Export Poll
+                      <span className="flex items-center">
+                        <Download className="mr-2 h-4 w-4" />
+                        Export Poll
+                      </span>
                     </button>
                     <button
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={handleViewSystemInfo}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       role="menuitem"
+                      onClick={handleViewSystemInfo}
                     >
-                      <InfoIcon className="h-4 w-4 mr-2" />
-                      System Info
+                      <span className="flex items-center">
+                        <InfoIcon className="mr-2 h-4 w-4" />
+                        System Info
+                      </span>
                     </button>
                   </div>
                 </div>
               )}
             </div>
           </div>
+          
           <CardTitle className="text-xl font-bold">{poll.question}</CardTitle>
           <CardDescription>
-            {pollHasEnded ? (
-              <span className="text-red-500 flex items-center gap-1">
-                <XCircle className="h-4 w-4" />
-                Poll ended {formattedDeadline}
+            <span className="flex items-center mt-1">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                pollHasEnded
+                  ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
+                  : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+              }`}>
+                {pollHasEnded ? "Ended" : "Active"}
               </span>
-            ) : (
-              <span 
-                className="text-gray-400 flex items-center gap-1" 
-                title={`Exact time remaining: ${exactDeadline}`}
-              >
-                <CircleCheck className="h-4 w-4" />
-                Poll ends {formattedDeadline}
+              <span className="text-gray-500 dark:text-gray-400 text-sm ml-2" title={exactDeadline}>
+                {pollHasEnded ? "Ended" : "Ends"} {formattedDeadline}
               </span>
-            )}
+            </span>
           </CardDescription>
         </CardHeader>
-
-        <CardContent className="px-8">
-          {voteStatus.hasVoted || showResults ? (
-            <div className="relative">
-              <VoteResults poll={poll} userVoteOptionId={voteStatus.optionId} />
-              {showResults && !voteStatus.hasVoted && (
-                <div className="mt-2 text-center text-sm text-gray-500">
-                  <p>Viewing results without voting</p>
-                </div>
-              )}
-            </div>
-          ) : !isConnected ? (
-            <div className="flex flex-col items-center justify-center py-4">
-              <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-lg w-full text-center">
-                <p>Please connect your wallet to vote in this poll.</p>
-              </div>
-              <Button 
-                onClick={() => window.dispatchEvent(new CustomEvent('connect-wallet'))}
-                variant="primary"
-                fullWidth
-              >
-                Connect Wallet
-              </Button>
-            </div>
+        
+        <CardContent>
+          {showResults ? (
+            <VoteResults
+              poll={poll}
+              userVoteOptionId={voteStatus.hasVoted ? voteStatus.optionId : undefined}
+              className="mt-2"
+            />
           ) : (
-            <div className="space-y-4">
-              {poll.options.map((option) => (
+            <div className="space-y-3">
+              {poll.options.map((option, idx) => (
                 <VoteOption
-                  key={option.id}
-                  option={option.text}
-                  optionId={option.id}
-                  isSelected={selectedOption === option.id}
+                  key={idx}
+                  id={idx + 1}
+                  label={option.text}
+                  selected={selectedOption === idx + 1}
                   onSelect={handleOptionSelect}
                   disabled={isVoting || pollHasEnded || voteStatus.hasVoted}
                 />
               ))}
-
-              {voteError && <div className="text-red-500 text-sm mt-2">{voteError}</div>}
+              
+              {voteError && (
+                <div className="text-red-500 text-sm mt-2">
+                  {voteError}
+                </div>
+              )}
             </div>
-          )}
-        </CardContent>
-
-        <CardFooter className="flex flex-col px-8 pb-4 gap-2">
-          {!voteStatus.hasVoted && !showResults && !pollHasEnded && isConnected && (
-            <Button
-              className="w-full"
-              onClick={handleVoteSubmit}
-              disabled={!selectedOption || isVoting || !address || pollHasEnded}
-            >
-              {isVoting ? "Submitting..." : "Vote"}
-            </Button>
-          )}
-
-          {(!voteStatus.hasVoted && !showResults && pollHasEnded) && (
-            <Button className="w-full" disabled>
-              Poll has ended
-            </Button>
           )}
           
-          {(voteStatus.hasVoted || showResults) && (
-            <div className="w-full text-center text-sm text-gray-500">
-              {voteStatus.hasVoted ? "Thank you for voting!" : ""}
+          <div className="mt-5 text-sm text-gray-500 dark:text-gray-400">
+            <div className="flex justify-between items-center">
+              <div>
+                Total votes: <span className="font-medium text-gray-700 dark:text-gray-300">{poll.voteCounts?.reduce((sum, count) => sum + count, 0) || 0}</span>
+              </div>
+              <div>
+                Created by: <span className="font-medium text-gray-700 dark:text-gray-300">{formatAddress(poll.id.substring(0, 42))}</span>
+              </div>
             </div>
-          )}
-
-          {isConnected && address && (
-            <div className="w-full text-center text-xs font-mono text-base-purple mt-2">
-              {formatAddress(address)}
+          </div>
+        </CardContent>
+        
+        {!showResults && !pollHasEnded && !voteStatus.hasVoted && (
+          <CardFooter>
+            <Button
+              onClick={handleVoteSubmit}
+              fullWidth
+              isLoading={isVoting}
+              disabled={!selectedOption || isVoting}
+              className="shadow-sm hover:shadow-md transition-all duration-200"
+            >
+              Vote
+            </Button>
+          </CardFooter>
+        )}
+        
+        {showResults && !voteStatus.hasVoted && !pollHasEnded && (
+          <CardFooter>
+            <Button
+              onClick={() => setShowResults(false)}
+              variant="outline"
+              fullWidth
+              className="shadow-sm hover:shadow-md transition-all duration-200"
+            >
+              Back to Vote
+            </Button>
+          </CardFooter>
+        )}
+        
+        {voteStatus.hasVoted && (
+          <CardFooter className="bg-green-50 dark:bg-green-900/20 py-3">
+            <div className="w-full flex items-center justify-center text-green-700 dark:text-green-400">
+              <CircleCheck className="h-5 w-5 mr-2" />
+              <span>You voted for "{voteStatus.optionId > 0 && voteStatus.optionId <= poll.options.length ? 
+                poll.options[voteStatus.optionId - 1].text : 'your option'}"</span>
             </div>
-          )}
-        </CardFooter>
+          </CardFooter>
+        )}
+        
+        {pollHasEnded && !showResults && (
+          <CardFooter>
+            <Button
+              onClick={() => setShowResults(true)}
+              variant="outline"
+              fullWidth
+              className="shadow-sm hover:shadow-md transition-all duration-200"
+            >
+              View Results
+            </Button>
+          </CardFooter>
+        )}
       </Card>
       
-      {/* System Info Modal */}
-      <PollSystemInfoModal
-        poll={poll}
-        isOpen={showSystemInfo}
-        onClose={() => setShowSystemInfo(false)}
-      />
+      {showSystemInfo && (
+        <PollSystemInfoModal
+          poll={poll} 
+          isOpen={showSystemInfo} 
+          onClose={() => setShowSystemInfo(false)} 
+        />
+      )}
     </>
   );
 }

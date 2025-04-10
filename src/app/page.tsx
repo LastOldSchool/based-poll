@@ -208,18 +208,18 @@ export default function Home() {
                 </button>
                 
                 {isLoading ? (
-                  <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
+                  <div className="bg-white dark:bg-base-dark rounded-xl p-5 md:p-6 shadow-md">
                     <div className="flex flex-col items-center justify-center py-4">
                       <div className="w-10 h-10 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mb-2"></div>
                       <p className="text-center">Loading poll data...</p>
                     </div>
                   </div>
                 ) : pollError ? (
-                  <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
+                  <div className="bg-white dark:bg-base-dark rounded-xl p-5 md:p-6 shadow-md">
                     <p className="text-center text-red-500">Error loading poll data</p>
                   </div>
                 ) : !pollData ? (
-                  <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
+                  <div className="bg-white dark:bg-base-dark rounded-xl p-5 md:p-6 shadow-md">
                     <p className="text-center">No poll data available</p>
                   </div>
                 ) : (
@@ -232,7 +232,7 @@ export default function Home() {
               </div>
             ) : isLoadingPolls ? (
               // Loading state
-              <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-8 shadow-sm">
+              <div className="bg-white dark:bg-base-dark rounded-xl p-8 shadow-md">
                 <div className="flex flex-col items-center justify-center py-4">
                   <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mb-2"></div>
                   <p className="text-center text-gray-500">Loading polls...</p>
@@ -240,7 +240,7 @@ export default function Home() {
               </div>
             ) : pollsLoaded && userPolls.length === 0 ? (
               // Empty state - only shown when polls are confirmed to be loaded and empty
-              <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-8 shadow-sm text-center">
+              <div className="bg-white dark:bg-base-dark rounded-xl p-8 shadow-md text-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
@@ -249,7 +249,7 @@ export default function Home() {
                   <Button 
                     onClick={() => setActiveTab("create")}
                     variant="primary"
-                    className="bg-base-purple hover:bg-purple-700"
+                    className="bg-base-purple hover:bg-purple-700 shadow-md transition-all duration-200 hover:shadow-lg"
                   >
                     Create Your First Poll
                   </Button>
@@ -265,11 +265,11 @@ export default function Home() {
                   return (
                     <div 
                       key={poll.id} 
-                      className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow"
+                      className="bg-white dark:bg-base-dark rounded-xl p-6 shadow-md hover:shadow-lg transition-all duration-200"
                     >
                       <h3 className="font-medium text-lg mb-3">{poll.question}</h3>
-                      <div className="flex flex-wrap justify-between text-sm mb-4">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
+                      <div className="flex flex-wrap justify-between text-sm mb-5">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           ended 
                             ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300" 
                             : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
@@ -284,7 +284,7 @@ export default function Home() {
                         onClick={() => handleLoadPoll(poll.id)}
                         variant="outline"
                         fullWidth
-                        className="hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                        className="hover:bg-blue-50 dark:hover:bg-blue-950/20 shadow-sm hover:shadow-md transition-all duration-200"
                       >
                         View Results
                       </Button>
