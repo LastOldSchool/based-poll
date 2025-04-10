@@ -3,16 +3,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Poll } from '@/utils/types';
 import { usePoll } from '@/hooks/usePoll';
-import { formatDeadline, formatDeadlineExact } from "../../utils/time-utils";
+import { formatDeadline, formatDeadlineExact } from '@/utils/time-utils';
 import { useAccount } from "wagmi";
-import { Button } from "../ui/button";
+import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { VoteOption } from "./VoteOption";
 import { CircleCheck, MoreVertical, Eye, InfoIcon, Download } from "lucide-react";
 import VoteResults from "./VoteResults";
-import { formatAddress } from "../../utils/reown";
-import { getCreatedPollById } from "../../utils/localStorage";
-import { exportPollToJson } from "../../utils/poll-utils";
+import { formatAddress } from '@/utils/reown';
+import { getCreatedPollById } from '@/utils/localStorage';
+import { exportPollToJson } from '@/utils/poll-utils';
 import PollSystemInfoModal from "./PollSystemInfoModal";
 
 interface PollCardProps {
