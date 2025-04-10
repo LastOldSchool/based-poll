@@ -90,7 +90,7 @@ export default function WalletConnect() {
       {isConnected ? (
         <button
           onClick={handleDisconnect}
-          className="flex items-center px-4 py-2 rounded-lg bg-base-purple text-white font-medium hover:bg-opacity-90 transition-all"
+          className="flex items-center px-4 py-2 rounded-lg bg-base-purple text-black font-medium hover:bg-opacity-90 transition-all"
         >
           <span className="hidden md:inline-block mr-2">Connected:</span>
           <span>{address ? formatAddress(address) : "..."}</span>
