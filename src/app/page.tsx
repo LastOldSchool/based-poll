@@ -47,10 +47,11 @@ export default function Home() {
 
   // Fetch vote result when poll data changes
   useEffect(() => {
-    if (pollData) {
+    if (pollData && pollData.id) {
       const fetchVoteResult = async () => {
         try {
-          const result = await getVoteResult();
+          // Force a fresh check from the blockchain
+          const result = await getVoteResult(true);
           if (isMounted.current) {
             setCurrentVoteResult(result);
           }
@@ -62,7 +63,12 @@ export default function Home() {
         }
       };
       
+      // Execute immediately but also add a backup timeout
       fetchVoteResult();
+      
+      // Add a second check after a delay to make sure we get the latest data
+      const timeoutId = setTimeout(fetchVoteResult, 500);
+      return () => clearTimeout(timeoutId);
     }
   }, [pollData, getVoteResult]);
 
@@ -79,16 +85,23 @@ export default function Home() {
   const handleLoadPoll = (pollId: string) => {
     setSelectedPollId(pollId);
     setLocalLoading(true);
+    
+    // First fetch the poll data
     fetchPoll(pollId as `0x${string}`);
     
-    // Force a vote result refresh after a short delay to ensure the poll data is loaded
-    setTimeout(() => {
+    // Force a vote result refresh with a longer delay to ensure the poll data is fully loaded
+    setTimeout(async () => {
       if (getVoteResult) {
-        getVoteResult(true).then(result => {
+        try {
+          // Force bypass cache to get fresh data
+          const result = await getVoteResult(true);
           setCurrentVoteResult(result);
-        });
+        } catch (error) {
+          console.error("Error fetching vote result:", error);
+          setCurrentVoteResult({ hasVoted: false, optionId: 0 });
+        }
       }
-    }, 300);
+    }, 800); // Increased timeout to ensure data is loaded
   };
 
   // When poll data or loading status changes, update local loading state

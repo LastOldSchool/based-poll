@@ -66,6 +66,16 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
     };
   }, []);
 
+  // Update vote status when voteResult prop changes
+  useEffect(() => {
+    if (voteResult && isMounted.current) {
+      setVoteStatus(voteResult);
+      if (voteResult.hasVoted) {
+        setShowResults(true);
+      }
+    }
+  }, [voteResult]);
+
   useEffect(() => {
     // Format the deadline each time it updates
     setFormattedDeadline(formatDeadline(poll.deadline));
@@ -75,10 +85,8 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
     const now = Math.floor(Date.now() / 1000);
     setPollHasEnded(now > poll.deadline);
 
-    // Check if user has voted (use voteResult if provided, otherwise get from hook)
-    if (voteResult) {
-      setVoteStatus(voteResult);
-    } else if (address) { // Only fetch if there's an address
+    // Only check vote status if not already provided via voteResult prop
+    if (!voteResult && address) {
       // Since getVoteResult is now async, we need to handle it with an async function
       const fetchVoteStatus = async () => {
         try {
@@ -86,6 +94,10 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
           const result = await getVoteResult(true);
           if (isMounted.current) { // Only update state if component is still mounted
             setVoteStatus(result);
+            // If user has already voted, show results
+            if (result.hasVoted) {
+              setShowResults(true);
+            }
           }
         } catch (error) {
           console.error("Error fetching vote status:", error);
@@ -100,7 +112,6 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
     }
 
     // Always refetch poll data from chain to get latest votes
-    // Force a fresh fetch from the blockchain, bypassing any cache
     if (isMounted.current) {
       refetchPoll(true);
     }
@@ -138,6 +149,9 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
       const result = await getVoteResult();
       setVoteStatus(result);
       setIsVoting(false);
+      
+      // Show results after successful vote
+      setShowResults(true);
       
       // Refetch poll data to ensure vote counts are up to date
       await refetchPoll();
@@ -292,7 +306,7 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
                   optionId={index + 1}
                   isSelected={selectedOption === index + 1}
                   onSelect={handleOptionSelect}
-                  disabled={isVoting || pollHasEnded}
+                  disabled={isVoting || pollHasEnded || voteStatus.hasVoted}
                 />
               ))}
 
@@ -318,9 +332,9 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
             </Button>
           )}
           
-          {voteStatus.hasVoted && (
+          {(voteStatus.hasVoted || showResults) && (
             <div className="w-full text-center text-sm text-gray-500">
-              Thank you for voting!
+              {voteStatus.hasVoted ? "Thank you for voting!" : ""}
             </div>
           )}
 
