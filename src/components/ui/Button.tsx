@@ -42,7 +42,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   // Base classes
-  const baseClasses = "rounded-lg font-medium transition-colors flex items-center justify-center shadow-md";
+  const baseClasses = "rounded-lg font-medium transition-all duration-200 flex items-center justify-center";
   
   // Size classes
   const sizeClasses = {
@@ -53,13 +53,13 @@ export function Button({
   
   // Variant classes
   const variantClasses = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-300 dark:disabled:bg-blue-800 border-2 border-blue-700",
-    secondary: "bg-purple-600 text-white hover:bg-purple-700 active:bg-purple-800 disabled:bg-purple-300 dark:disabled:bg-purple-800 border-2 border-purple-700",
-    outline: "border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700 text-gray-800 dark:text-gray-200",
+    primary: "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-300 dark:disabled:bg-blue-800 shadow-md hover:shadow-lg",
+    secondary: "bg-purple-600 text-white hover:bg-purple-700 active:bg-purple-800 disabled:bg-purple-300 dark:disabled:bg-purple-800 shadow-md hover:shadow-lg",
+    outline: "border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm hover:shadow-md",
     ghost: "hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700 text-gray-700 dark:text-gray-300",
-    danger: "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 disabled:bg-red-300 dark:disabled:bg-red-800 border-2 border-red-700",
-    success: "bg-green-600 text-white hover:bg-green-700 active:bg-green-800 disabled:bg-green-300 dark:disabled:bg-green-800 border-2 border-green-700",
-    transfer: "border-2 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white active:bg-orange-600 disabled:bg-orange-300 disabled:border-orange-300 dark:disabled:bg-orange-800",
+    danger: "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 disabled:bg-red-300 dark:disabled:bg-red-800 shadow-md hover:shadow-lg",
+    success: "bg-green-600 text-white hover:bg-green-700 active:bg-green-800 disabled:bg-green-300 dark:disabled:bg-green-800 shadow-md hover:shadow-lg",
+    transfer: "bg-orange-500 text-white hover:bg-orange-600 hover:shadow-lg active:bg-orange-700 disabled:bg-orange-300 dark:disabled:bg-orange-800 shadow-md",
   };
   
   // Width class
@@ -70,7 +70,7 @@ export function Button({
   
   // Construct the final className string
   const buttonClassName = `${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${widthClass} ${
-    isDisabled ? "cursor-not-allowed" : ""
+    isDisabled ? "cursor-not-allowed opacity-70" : ""
   } ${className}`;
   
   return (

@@ -8,7 +8,7 @@ import { useAccount } from "wagmi";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { VoteOption } from "./VoteOption";
-import { CircleCheck, XCircle, Download, MoreVertical, Eye, InfoIcon } from "lucide-react";
+import { CircleCheck, MoreVertical, Eye, InfoIcon, Download } from "lucide-react";
 import VoteResults from "./VoteResults";
 import { formatAddress } from "../../utils/reown";
 import { getCreatedPollById } from "../../utils/localStorage";
@@ -35,7 +35,7 @@ export function PollCard({
   voteResult,
   onVoteSuccess
 }: PollCardProps) {
-  const { vote, getVoteResult, refetchPoll } = usePoll();
+  const { vote, refetchPoll } = usePoll();
   const { address, isConnected } = useAccount();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isVoting, setIsVoting] = useState(false);
@@ -81,7 +81,7 @@ export function PollCard({
         setShowResults(true);
       }
     }
-  }, [voteResult]);
+  }, [voteResult, address]);
 
   useEffect(() => {
     // Format the deadline each time it updates
@@ -92,49 +92,11 @@ export function PollCard({
     const now = Math.floor(Date.now() / 1000);
     setPollHasEnded(now > poll.deadline);
 
-    // Only check vote status from blockchain if no voteResult prop is provided
-    // This ensures we don't override the parent component's vote result
-    if (address && !voteResult) {
-      let isFetching = true;
-      const fetchVoteStatus = async () => {
-        try {
-          // Force a fresh fetch from the blockchain, bypassing any cache
-          const result = await getVoteResult(true);
-          
-          if (isMounted.current && isFetching) { // Only update state if component is still mounted
-            setVoteStatus(result);
-            // If user has already voted, show results
-            if (result.hasVoted) {
-              setShowResults(true);
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching vote status:", error);
-          // Fallback to no vote
-          if (isMounted.current && isFetching) {
-            setVoteStatus({ hasVoted: false, optionId: 0 });
-          }
-        }
-      };
-      
-      fetchVoteStatus();
-      
-      // Set a timeout to prevent endless polling
-      const timeout = setTimeout(() => {
-        isFetching = false;
-      }, 10000);
-      
-      return () => {
-        clearTimeout(timeout);
-        isFetching = false;
-      };
-    }
-
     // Always refetch poll data from chain to get latest votes
     if (isMounted.current) {
       refetchPoll(true);
     }
-  }, [poll, getVoteResult, address, refetchPoll, voteResult]);
+  }, [poll, refetchPoll]);
 
   const handleOptionSelect = (optionId: number) => {
     setSelectedOption(optionId);
@@ -163,12 +125,6 @@ export function PollCard({
 
     try {
       await vote(poll.id, selectedOption);
-      
-      // Update local vote status
-      setVoteStatus({
-        hasVoted: true,
-        optionId: selectedOption
-      });
       
       // Show results after successful vote
       setShowResults(true);
@@ -373,8 +329,8 @@ export function PollCard({
           <CardFooter className="bg-green-50 dark:bg-green-900/20 py-3">
             <div className="w-full flex items-center justify-center text-green-700 dark:text-green-400">
               <CircleCheck className="h-5 w-5 mr-2" />
-              <span>You voted for "{voteStatus.optionId > 0 && voteStatus.optionId <= poll.options.length ? 
-                poll.options[voteStatus.optionId - 1].text : 'your option'}"</span>
+              <span>You voted for &quot;{voteStatus.optionId > 0 && voteStatus.optionId <= poll.options.length ? 
+                poll.options[voteStatus.optionId - 1].text : 'your option'}&quot;</span>
             </div>
           </CardFooter>
         )}

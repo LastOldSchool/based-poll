@@ -1,0 +1,20 @@
+{
+  "question": "test",
+  "options": [
+    {
+      "id": 1,
+      "text": "apple"
+    },
+    {
+      "id": 2,
+      "text": "banana"
+    },
+    {
+      "id": 3,
+      "text": "juice"
+    }
+  ],
+  "deadline": 1744361534,
+  "optionCount": 3,
+  "createdAt": 1744275134
+} 
