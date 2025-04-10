@@ -17,7 +17,11 @@ interface VoteResultsProps {
  * @param className - Additional class names to apply to the component
  */
 export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsProps) {
-  const totalVotes = poll.voteCounts.reduce((sum, count) => sum + count, 0);
+  // Calculate total votes by summing up all option votes
+  // Support both old structure (voteCounts array) and potential new structure (votes in options)
+  const totalVotes = poll.voteCounts ? 
+    poll.voteCounts.reduce((sum, votes) => sum + votes, 0) : 
+    0;
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -26,16 +30,14 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
       </div>
       
       {poll.options.map((option, index) => {
-        const voteCount = poll.voteCounts[index];
+        // Support both old structure (voteCounts array) and potential new structure (votes in options)
+        const voteCount = poll.voteCounts ? poll.voteCounts[index] : 0;
         const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
-        
-        // The option index is 0-based but userVoteOptionId is 1-based
-        // So we need to check if userVoteOptionId equals index+1
-        const isUserVote = userVoteOptionId === index + 1;
+        const isUserVote = userVoteOptionId === option.id;
         
         return (
           <div 
-            key={index} 
+            key={option.id} 
             className={cn(
               "space-y-1 relative",
               isUserVote && "p-3 my-2 rounded-md"
@@ -52,7 +54,7 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
                   "font-medium",
                   isUserVote ? "text-green-700" : "text-gray-700"
                 )}>
-                  {option} {isUserVote && (
+                  {option.text} {isUserVote && (
                     <span className="inline-flex items-center ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                       Your vote
                     </span>

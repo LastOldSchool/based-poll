@@ -2,23 +2,15 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { generatePrePollId, calculatePollId } from "../utils/poll-utils";
-import { PollParams, Poll } from '@/utils/types';
+import { PollParams, Poll, PollOption } from '@/utils/types';
 import { pollContract } from '@/utils/contract';
 import { useAccount, useWalletClient } from "wagmi";
 import { POLL_CONTRACT_ABI, POLL_CONTRACT_ADDRESS } from "../utils/config";
-import { saveCreatedPoll, saveVote, getUserVoteForPoll, getCreatedPollById, getAllVotesForPoll, StoredPoll, StoredVote } from "../utils/localStorage";
-
-// Type definitions for cache
-type VoteResultData = { hasVoted: boolean; optionId: number };
-type CacheEntry = { data: VoteResultData; timestamp: number };
-
-// Cache to store blockchain vote results and reduce redundant requests
-const voteResultCache = new Map<string, CacheEntry>();
-// Cache expiration time in ms (5 minutes)
-const CACHE_EXPIRATION = 5 * 60 * 1000;
+import { saveCreatedPoll, getCreatedPollById, StoredPoll } from "../utils/localStorage";
 
 /**
- * Hook to interact with the poll contract
+ * Custom hook to interact with the poll contract
+ * @returns Object containing poll data and functions to interact with polls
  */
 export function usePoll() {
   const [pollParams, setPollParams] = useState<PollParams | null>(null);
@@ -28,64 +20,78 @@ export function usePoll() {
   const [isPollError, setIsPollError] = useState(false);
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const [localVote, setLocalVote] = useState<StoredVote | null>(null);
-  const refetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const pendingChainRequestsRef = useRef<Record<string, Promise<unknown>>>({});
-
-  // Load local vote data when poll ID changes
-  useEffect(() => {
-    if (!pollId) return;
-    
-    // Only check votes for the current wallet address
-    const userVote = getUserVoteForPoll(pollId, address);
-    if (userVote) {
-      setLocalVote(userVote);
-    } else {
-      setLocalVote(null);
-    }
-  }, [pollId, address]); // Add address as a dependency to re-check when wallet changes
+  const requestsInProgressRef = useRef<Record<string, Promise<unknown>>>({});
+  const retryCountRef = useRef<Record<string, number>>({});
 
   /**
-   * Make a blockchain request with deduplication to prevent duplicate in-flight requests
+   * Make a deduplicated chain request to prevent multiple in-flight requests for the same data
    * @param key - Unique key for the request
-   * @param requestFn - Function that makes the actual request
-   * @returns Promise resolving to the request result
+   * @param requestFn - Function to execute the request
+   * @param maxRetries - Maximum number of retries
+   * @returns Promise with the request result
    */
-  const makeChainRequest = async <T,>(key: string, requestFn: () => Promise<T>): Promise<T> => {
-    // If this exact request is already in flight, return the existing promise
-    if (key in pendingChainRequestsRef.current) {
-      return pendingChainRequestsRef.current[key] as Promise<T>;
+  const makeChainRequest = useCallback(async <T,>(
+    key: string, 
+    requestFn: () => Promise<T>,
+    maxRetries: number = 3
+  ): Promise<T> => {
+    // Return existing promise if request is already in progress
+    if (key in requestsInProgressRef.current) {
+      return requestsInProgressRef.current[key] as Promise<T>;
     }
 
-    // Make the request and store the promise
-    const requestPromise = requestFn();
-    pendingChainRequestsRef.current[key] = requestPromise;
+    // Reset retry count if it's a new request
+    if (!(key in retryCountRef.current)) {
+      retryCountRef.current[key] = 0;
+    }
+
+    // Create a new request promise
+    const requestPromise = requestFn().catch(async (error) => {
+      // Handle retry logic for certain errors
+      if (retryCountRef.current[key] < maxRetries && 
+         (error.message.includes('timeout') || error.message.includes('no data') || error.message.includes('0x'))) {
+        
+        console.log(`Retrying request ${key}, attempt ${retryCountRef.current[key] + 1}/${maxRetries}`);
+        retryCountRef.current[key]++;
+        
+        // Wait a bit before retrying (increasing delay for each retry)
+        const delay = 1000 * retryCountRef.current[key];
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // Remove the failed request from in-progress tracking
+        delete requestsInProgressRef.current[key];
+        
+        // Try again
+        return makeChainRequest(key, requestFn, maxRetries);
+      }
+      
+      // If we've exhausted retries or it's not a retriable error, propagate it
+      throw error;
+    });
+    
+    requestsInProgressRef.current[key] = requestPromise;
 
     try {
-      // Wait for the request to complete
-      const result = await requestPromise;
-      return result;
+      return await requestPromise;
     } finally {
-      // Clear the pending request
-      delete pendingChainRequestsRef.current[key];
+      // Clean up after completion
+      delete requestsInProgressRef.current[key];
     }
-  };
+  }, []);
 
+  /**
+   * Refetch poll data from blockchain or local storage
+   * @param forceFetch - Whether to force fetching from blockchain, bypassing cache
+   */
   const refetchPoll = useCallback(async (forceFetch = false) => {
     if (!pollId) return;
     
-    // Clear any existing refetch timeout
-    if (refetchTimeoutRef.current) {
-      clearTimeout(refetchTimeoutRef.current);
-      refetchTimeoutRef.current = null;
-    }
-    
     setIsPollLoading(true);
+    
     try {
-      // Get the stored poll data to calculate the correct contract ID
+      // Get stored poll data
       const localPoll = getCreatedPollById(pollId);
       let contractPollId = pollId;
-      let contractData = null;
       
       // If we have local data with prePollId, calculate the correct contract ID
       if (localPoll?.prePollId) {
@@ -99,52 +105,36 @@ export function usePoll() {
           // Calculate the ID as it would be on the contract
           const calculatedId = calculatePollId(params);
           
-          // If different from our stored ID, check the contract with this ID
+          // If different from our stored ID, update
           if (calculatedId !== pollId) {
             contractPollId = calculatedId;
-            // Try to get data using the calculated contract poll ID
-            if (forceFetch) {
-              contractData = await makeChainRequest(
-                `getPoll-${calculatedId}`,
-                () => pollContract.getPoll(calculatedId, forceFetch)
-              );
-            } else {
-              contractData = await makeChainRequest(
-                `getPoll-${calculatedId}`,
-                () => pollContract.getPoll(calculatedId, false)
-              );
-            }
           }
         } catch (error) {
           console.error("Error calculating contract poll ID:", error);
         }
       }
       
-      // If we haven't found data with the calculated ID, try with the stored ID
-      if (!contractData) {
-        if (forceFetch) {
-          contractData = await makeChainRequest(
-            `getPoll-${pollId}-force`,
-            () => pollContract.getPoll(pollId, forceFetch)
-          );
-        } else {
-          contractData = await makeChainRequest(
-            `getPoll-${pollId}`,
-            () => pollContract.getPoll(pollId, false)
-          );
-        }
-      }
+      // Fetch data from blockchain
+      const contractData = await makeChainRequest(
+        `getPoll-${contractPollId}${forceFetch ? '-force' : ''}`,
+        () => pollContract.getPoll(contractPollId, forceFetch)
+      );
       
-      // Check if we have data from the contract
+      // If blockchain data exists, use it
       if (contractData && contractData.exists) {
-        // If we got contract data, use it but make sure to keep the question and options
+        // Create default options if local poll doesn't exist
+        const defaultOptions: PollOption[] = Array(contractData.optionCount)
+          .fill(0)
+          .map((_, i) => ({ id: i + 1, text: `Option ${i + 1}` }));
+        
+        // Combine blockchain data with local metadata
         const enhancedData: Poll = {
           ...contractData,
           question: localPoll?.question || "Unknown Question",
-          options: localPoll?.options || Array(contractData.optionCount).fill("Option")
+          options: localPoll?.options || defaultOptions
         };
         
-        // Store the correct ID for future reference
+        // Update stored poll if needed
         if (contractPollId !== pollId && localPoll) {
           const updatedPoll: StoredPoll = {
             ...localPoll,
@@ -155,42 +145,27 @@ export function usePoll() {
         
         setPollData(enhancedData);
         setIsPollError(false);
-        setIsPollLoading(false);
         return;
       }
       
-      // If no contract data but have localStorage data
+      // Fallback to local data if available
       if (localPoll) {
-        // Get all local votes for this poll to calculate totals
-        const allVotes = getAllVotesForPoll(pollId);
-        
-        // Create local poll data with all local votes combined
-        const voteCounts = new Array(localPoll.optionCount).fill(0);
-        
-        // Count all votes for each option from local storage
-        allVotes.forEach(vote => {
-          if (vote.optionId > 0 && vote.optionId <= localPoll.optionCount) {
-            voteCounts[vote.optionId - 1] += 1;
-          }
-        });
-        
         const localPollData: Poll = {
           id: localPoll.id as `0x${string}`,
           question: localPoll.question,
           options: localPoll.options,
           deadline: localPoll.deadline,
-          voteCounts: voteCounts,
+          voteCounts: new Array(localPoll.optionCount).fill(0),
           optionCount: localPoll.optionCount,
           exists: true
         };
         
         setPollData(localPollData);
         setIsPollError(false);
-        setIsPollLoading(false);
         return;
       }
       
-      // If we reach here, we have no data from any source
+      // No data available
       setPollData(null);
       setIsPollError(true);
       
@@ -201,25 +176,12 @@ export function usePoll() {
       const localPoll = getCreatedPollById(pollId);
       
       if (localPoll) {
-        // Get all local votes for this poll
-        const allVotes = getAllVotesForPoll(pollId);
-        
-        // Create local poll data with all local votes combined
-        const voteCounts = new Array(localPoll.optionCount).fill(0);
-        
-        // Count all votes for each option from local storage
-        allVotes.forEach(vote => {
-          if (vote.optionId > 0 && vote.optionId <= localPoll.optionCount) {
-            voteCounts[vote.optionId - 1] += 1;
-          }
-        });
-        
         const localPollData: Poll = {
           id: localPoll.id as `0x${string}`,
           question: localPoll.question,
           options: localPoll.options,
           deadline: localPoll.deadline,
-          voteCounts: voteCounts,
+          voteCounts: new Array(localPoll.optionCount).fill(0),
           optionCount: localPoll.optionCount,
           exists: true
         };
@@ -233,14 +195,14 @@ export function usePoll() {
     } finally {
       setIsPollLoading(false);
     }
-  }, [pollId]);
+  }, [pollId, makeChainRequest]);
 
   /**
    * Create a new poll
    * @param question - The poll question
-   * @param options - Array of poll options
+   * @param options - Array of poll option texts
    * @param deadline - Timestamp when the poll ends
-   * @returns Promise resolving to transaction hash
+   * @returns Promise resolving to transaction hash or null
    */
   const createPoll = async (question: string, options: string[], deadline: number) => {
     if (!address && typeof window === 'undefined') {
@@ -260,12 +222,18 @@ export function usePoll() {
     // Calculate the poll ID client-side
     const calculatedPollId = calculatePollId(params);
     
+    // Convert string options to PollOption objects
+    const pollOptions: PollOption[] = options.map((text, index) => ({
+      id: index + 1,
+      text
+    }));
+    
     // Store in localStorage
     const pollToStore: StoredPoll = {
       id: calculatedPollId,
       prePollId,
       question,
-      options,
+      options: pollOptions,
       deadline,
       optionCount,
       createdAt: Math.floor(Date.now() / 1000)
@@ -273,10 +241,9 @@ export function usePoll() {
     
     saveCreatedPoll(pollToStore);
     
-    // If wallet is connected, try to create poll on chain
+    // If wallet is connected, create poll on chain
     if (address && isConnected && walletClient) {
       try {
-        // Use Viem to interact with the contract
         const hash = await walletClient.writeContract({
           address: POLL_CONTRACT_ADDRESS,
           abi: POLL_CONTRACT_ABI,
@@ -287,7 +254,6 @@ export function usePoll() {
         return hash;
       } catch (error) {
         console.error("Error creating poll on chain:", error);
-        // Continue with local storage only
         return null;
       }
     }
@@ -297,70 +263,53 @@ export function usePoll() {
 
   /**
    * Vote on a poll
-   * @param question - Poll question (used to generate prePollId)
+   * @param pollId - ID of the poll to vote on
    * @param optionId - ID of the option to vote for (1-based)
-   * @param optionCount - Total number of options in the poll
-   * @param deadline - Poll deadline timestamp
    * @returns Promise resolving to transaction hash
    */
-  const vote = async (question: string, optionId: number, optionCount: number, deadline: number) => {
-    const prePollId = generatePrePollId(question);
+  const vote = async (pollId: string, optionId: number) => {
+    if (!address || !isConnected || !walletClient) {
+      throw new Error("Wallet not connected");
+    }
     
-    // Calculate poll ID client-side
-    const params = { prePollId, optionCount, deadline };
-    const calculatedPollId = calculatePollId(params);
-    
-    // Store vote in localStorage with wallet address
-    const voteToStore: StoredVote = {
-      pollId: calculatedPollId,
-      optionId,
-      votedAt: Math.floor(Date.now() / 1000),
-      walletAddress: address // Include the current wallet address
-    };
+    // Get stored poll data to extract necessary parameters
+    const storedPoll = getCreatedPollById(pollId);
+    if (!storedPoll || !storedPoll.prePollId) {
+      throw new Error("Poll data not found");
+    }
     
     try {
-      // Save vote to localStorage
-      saveVote(voteToStore);
-      setLocalVote(voteToStore);
+      console.log(`Submitting vote for poll ID: ${pollId}, option: ${optionId}`);
       
-      // Clear vote cache after voting
-      clearVoteCache(calculatedPollId, address);
+      // Ensure prePollId is properly formatted
+      const formattedPrePollId = storedPoll.prePollId.startsWith('0x') 
+        ? storedPoll.prePollId as `0x${string}` 
+        : `0x${storedPoll.prePollId}` as `0x${string}`;
       
-      // If wallet is connected, try to vote on chain
-      let hash = null;
-      if (address && isConnected && walletClient) {
-        try {
-          // Use Viem to interact with the contract
-          hash = await walletClient.writeContract({
-            address: POLL_CONTRACT_ADDRESS,
-            abi: POLL_CONTRACT_ABI,
-            functionName: 'vote',
-            args: [prePollId, optionId, optionCount, BigInt(deadline)]
-          });
-        } catch (error) {
-          console.error("Error voting on chain:", error);
-          // Continue with local storage only
-        }
-      }
+      console.log(`Voting with params:`, {
+        prePollId: formattedPrePollId,
+        optionId,
+        optionCount: storedPoll.optionCount,
+        deadline: storedPoll.deadline
+      });
       
-      // Set the poll ID if it's not already set
-      if (!pollId || pollId !== calculatedPollId) {
-        setPollId(calculatedPollId as `0x${string}`);
-      }
+      // Submit vote to blockchain
+      const hash = await walletClient.writeContract({
+        address: POLL_CONTRACT_ADDRESS,
+        abi: POLL_CONTRACT_ABI,
+        functionName: 'vote',
+        args: [formattedPrePollId, optionId, storedPoll.optionCount, BigInt(storedPoll.deadline)]
+      });
       
-      // Schedule refetchPoll after a short delay to avoid immediate polling
-      if (refetchTimeoutRef.current) {
-        clearTimeout(refetchTimeoutRef.current);
-      }
+      console.log(`Vote submitted with hash: ${hash}`);
       
-      refetchTimeoutRef.current = setTimeout(() => {
-        refetchPoll();
-        refetchTimeoutRef.current = null;
-      }, 1500);
+      // After successful vote, immediately refetch poll data
+      await new Promise(resolve => setTimeout(resolve, 500)); // Small delay to allow network propagation
+      await refetchPoll(true);
       
       return hash;
     } catch (error) {
-      console.error("Error in vote function:", error);
+      console.error("Error voting:", error);
       throw error;
     }
   };
@@ -371,90 +320,27 @@ export function usePoll() {
    */
   const fetchPoll = (id: `0x${string}`) => {
     setPollId(id);
-    // Don't do refetchPoll here, it will be triggered by useEffect
-  };
-
-  // Add useEffect to trigger refetchPoll when pollId changes
-  useEffect(() => {
-    if (pollId) {
-      refetchPoll();
-    }
-    
-    // Cleanup function to clear any pending timeouts
-    return () => {
-      if (refetchTimeoutRef.current) {
-        clearTimeout(refetchTimeoutRef.current);
-      }
-    };
-  }, [pollId, refetchPoll]);
-
-  /**
-   * Clear the vote cache for a specific poll and address
-   * @param pollId - The poll ID
-   * @param userAddress - The user's wallet address
-   */
-  const clearVoteCache = (pollId: string, userAddress?: string | null) => {
-    // If address is provided, clear just that address's cache
-    if (userAddress) {
-      const key = `${pollId}-${userAddress}`;
-      voteResultCache.delete(key);
-    } else {
-      // Otherwise clear all cache entries for this poll
-      for (const key of voteResultCache.keys()) {
-        if (key.startsWith(`${pollId}-`)) {
-          voteResultCache.delete(key);
-        }
-      }
-    }
   };
 
   /**
-   * Get vote result from blockchain or localStorage as fallback
-   * Tries to get vote data from the chain first, then falls back to localStorage
-   * Uses memory cache to reduce blockchain requests
-   * @param force - Force fetching from blockchain, bypassing cache
+   * Get vote result from blockchain
+   * @param forceFetch - Force fetching from blockchain, bypassing cache
+   * @returns Promise resolving to vote result
    */
-  const getVoteResult = useCallback(async (force = false) => {
+  const getVoteResult = useCallback(async (forceFetch = false): Promise<{ hasVoted: boolean; optionId: number }> => {
     if (!pollData || !address) return { hasVoted: false, optionId: 0 };
     
-    const cacheKey = `${pollData.id}-${address}`;
-    
-    // Check cache first unless force refresh is requested
-    if (!force && voteResultCache.has(cacheKey)) {
-      const cachedData = voteResultCache.get(cacheKey);
-      const now = Date.now();
-      
-      // Use cached data if it hasn't expired
-      if (cachedData && now - cachedData.timestamp < CACHE_EXPIRATION) {
-        return cachedData.data;
-      }
-    }
-    
     try {
-      // First check if we have a local vote (fastest path)
-      const userVote = getUserVoteForPoll(pollData.id, address);
-      if (userVote) {
-        const result = { hasVoted: true, optionId: userVote.optionId };
-        
-        // Cache the result
-        voteResultCache.set(cacheKey, {
-          data: result,
-          timestamp: Date.now()
-        });
-        
-        return result;
-      }
-      
-      // Then check if we need to calculate a different contract poll ID
-      const localPoll = getCreatedPollById(pollData.id);
+      // Get stored poll data to calculate correct poll ID
+      const storedPoll = getCreatedPollById(pollData.id);
       let contractPollId = pollData.id;
       
-      if (localPoll?.prePollId) {
-        // Calculate the ID that would be used on the contract
+      // If we have local data with prePollId, calculate accurate poll ID
+      if (storedPoll?.prePollId) {
         const params = {
-          prePollId: localPoll.prePollId as `0x${string}`,
-          optionCount: localPoll.optionCount,
-          deadline: localPoll.deadline
+          prePollId: storedPoll.prePollId as `0x${string}`,
+          optionCount: storedPoll.optionCount,
+          deadline: storedPoll.deadline
         };
         
         try {
@@ -467,78 +353,50 @@ export function usePoll() {
         }
       }
       
-      // Try to get vote information from the blockchain - only one call now
-      if (pollContract.checkVote) {
-        // Make only one blockchain call using the most likely ID
-        const blockchainVote = await makeChainRequest(
-          `checkVote-${contractPollId}-${address}${force ? '-force' : ''}`,
-          () => pollContract.checkVote(contractPollId, address as `0x${string}`, force)
+      // Format the poll ID to ensure it's a valid hex string
+      const formattedPollId = contractPollId.startsWith('0x') 
+        ? contractPollId as `0x${string}` 
+        : `0x${contractPollId}` as `0x${string}`;
+      
+      console.log(`Checking vote result for poll: ${formattedPollId}, address: ${address}`);
+      
+      // Check vote on blockchain with retry logic
+      try {
+        return await makeChainRequest(
+          `checkVote-${formattedPollId}-${address}${forceFetch ? '-force' : ''}`,
+          () => pollContract.checkVote(formattedPollId, address as `0x${string}`, forceFetch),
+          3 // Max retries
         );
+      } catch (chainError) {
+        console.error("Contract error when checking vote:", chainError);
         
-        if (blockchainVote.hasVoted) {
-          // Cache the result
-          voteResultCache.set(cacheKey, {
-            data: blockchainVote,
-            timestamp: Date.now()
-          });
-          
-          return blockchainVote;
-        }
-        
-        // Only make a second call if the contract IDs are different
-        if (contractPollId !== pollData.id) {
-          const fallbackVote = await makeChainRequest(
-            `checkVote-${pollData.id}-${address}${force ? '-force' : ''}`,
-            () => pollContract.checkVote(pollData.id, address as `0x${string}`, force)
-          );
-          
-          if (fallbackVote.hasVoted) {
-            // Cache the result
-            voteResultCache.set(cacheKey, {
-              data: fallbackVote,
-              timestamp: Date.now()
-            });
-            
-            return fallbackVote;
-          }
-        }
+        // If contract call failed completely, assume user hasn't voted yet
+        return { hasVoted: false, optionId: 0 };
       }
-      
-      // No vote found - cache negative result too
-      const result = { hasVoted: false, optionId: 0 };
-      voteResultCache.set(cacheKey, {
-        data: result,
-        timestamp: Date.now()
-      });
-      
-      return result;
     } catch (error) {
       console.error("Error getting vote result:", error);
-      
-      // If blockchain check fails, try localStorage
-      const userVote = getUserVoteForPoll(pollData.id, address);
-      if (userVote) {
-        const result = { hasVoted: true, optionId: userVote.optionId };
-        // Still cache localStorage result
-        voteResultCache.set(cacheKey, {
-          data: result,
-          timestamp: Date.now()
-        });
-        return result;
-      }
-      
       return { hasVoted: false, optionId: 0 };
     }
-  }, [pollData, address]);
+  }, [pollData, address, makeChainRequest]);
 
-  // Clean up the cache when component unmounts
+  // Fetch poll data when pollId changes
   useEffect(() => {
-    return () => {
-      // Clear any pending timeouts
-      if (refetchTimeoutRef.current) {
-        clearTimeout(refetchTimeoutRef.current);
-      }
-    };
+    if (pollId) {
+      refetchPoll(true);
+    }
+  }, [pollId, refetchPoll]);
+  
+  // Clear all caches periodically to prevent stale data
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Clear retry counts to allow fresh attempts
+      retryCountRef.current = {};
+      
+      // Clear contract cache every hour
+      pollContract.clearCache();
+    }, 60 * 60 * 1000); // 1 hour
+    
+    return () => clearInterval(interval);
   }, []);
 
   return {
@@ -551,7 +409,6 @@ export function usePoll() {
     createPoll,
     vote,
     fetchPoll,
-    getVoteResult,
-    localVote,
+    getVoteResult
   };
 } 

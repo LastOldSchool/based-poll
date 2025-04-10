@@ -19,6 +19,7 @@ interface PollCardProps {
   poll: Poll;
   className?: string;
   voteResult?: { hasVoted: boolean; optionId: number };
+  onVoteSuccess?: () => void;
 }
 
 /**
@@ -26,8 +27,14 @@ interface PollCardProps {
  * @param poll - Poll data to display
  * @param className - Optional CSS class name
  * @param voteResult - Optional vote result data
+ * @param onVoteSuccess - Optional callback function called after successful vote
  */
-export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
+export function PollCard({ 
+  poll, 
+  className = "", 
+  voteResult,
+  onVoteSuccess
+}: PollCardProps) {
   const { vote, getVoteResult, refetchPoll } = usePoll();
   const { address, isConnected } = useAccount();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -85,14 +92,16 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
     const now = Math.floor(Date.now() / 1000);
     setPollHasEnded(now > poll.deadline);
 
-    // Only check vote status if not already provided via voteResult prop
-    if (!voteResult && address) {
-      // Since getVoteResult is now async, we need to handle it with an async function
+    // Only check vote status from blockchain if no voteResult prop is provided
+    // This ensures we don't override the parent component's vote result
+    if (address && !voteResult) {
+      let isFetching = true;
       const fetchVoteStatus = async () => {
         try {
           // Force a fresh fetch from the blockchain, bypassing any cache
           const result = await getVoteResult(true);
-          if (isMounted.current) { // Only update state if component is still mounted
+          
+          if (isMounted.current && isFetching) { // Only update state if component is still mounted
             setVoteStatus(result);
             // If user has already voted, show results
             if (result.hasVoted) {
@@ -102,20 +111,30 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
         } catch (error) {
           console.error("Error fetching vote status:", error);
           // Fallback to no vote
-          if (isMounted.current) {
+          if (isMounted.current && isFetching) {
             setVoteStatus({ hasVoted: false, optionId: 0 });
           }
         }
       };
       
       fetchVoteStatus();
+      
+      // Set a timeout to prevent endless polling
+      const timeout = setTimeout(() => {
+        isFetching = false;
+      }, 10000);
+      
+      return () => {
+        clearTimeout(timeout);
+        isFetching = false;
+      };
     }
 
     // Always refetch poll data from chain to get latest votes
     if (isMounted.current) {
       refetchPoll(true);
     }
-  }, [poll, getVoteResult, address, voteResult, refetchPoll]);
+  }, [poll, getVoteResult, address, refetchPoll, voteResult]);
 
   const handleOptionSelect = (optionId: number) => {
     setSelectedOption(optionId);
@@ -143,21 +162,25 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
     setVoteError(null);
 
     try {
-      await vote(poll.question, selectedOption, poll.optionCount, poll.deadline);
+      await vote(poll.id, selectedOption);
       
-      // After voting, update the vote status and refetch poll data
-      const result = await getVoteResult();
-      setVoteStatus(result);
-      setIsVoting(false);
+      // Update local vote status
+      setVoteStatus({
+        hasVoted: true,
+        optionId: selectedOption
+      });
       
       // Show results after successful vote
       setShowResults(true);
       
-      // Refetch poll data to ensure vote counts are up to date
-      await refetchPoll();
+      // Call the success callback if provided
+      if (onVoteSuccess) {
+        onVoteSuccess();
+      }
     } catch (error) {
       console.error("Error voting:", error);
       setVoteError("Failed to submit vote. Please try again.");
+    } finally {
       setIsVoting(false);
     }
   };
@@ -299,12 +322,12 @@ export function PollCard({ poll, className = "", voteResult }: PollCardProps) {
             </div>
           ) : (
             <div className="space-y-4">
-              {poll.options.map((option, index) => (
+              {poll.options.map((option) => (
                 <VoteOption
-                  key={index}
-                  option={option}
-                  optionId={index + 1}
-                  isSelected={selectedOption === index + 1}
+                  key={option.id}
+                  option={option.text}
+                  optionId={option.id}
+                  isSelected={selectedOption === option.id}
                   onSelect={handleOptionSelect}
                   disabled={isVoting || pollHasEnded || voteStatus.hasVoted}
                 />

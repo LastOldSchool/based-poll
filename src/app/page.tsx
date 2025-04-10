@@ -6,22 +6,26 @@ import CreatePollForm from "../components/poll/CreatePollForm";
 import PollCard from "../components/poll/PollCard";
 import ImportPollForm from "../components/poll/ImportPollForm";
 import Footer from "../components/Footer";
-import { usePoll } from "../hooks/usePoll";
-import { getCreatedPolls, StoredPoll } from "../utils/localStorage";
-import { formatDate, isPollEnded } from "../utils/poll-utils";
-import { Button } from "../components/ui/button";
+import { getCreatedPolls, StoredPoll } from '@/utils/localStorage';
+import { formatDate, isPollEnded } from '@/utils/poll-utils';
+import { Button } from '@/components/ui/button';
+import { loadPollDetails } from "../utils/poll-fetcher";
+import { Poll } from "../utils/types";
+import { useAccount } from "wagmi";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"vote" | "create" | "import">("vote");
-  const { pollData, isPollLoading, isPollError, fetchPoll, getVoteResult } = usePoll();
   const [userPolls, setUserPolls] = useState<StoredPoll[]>([]);
   const [selectedPollId, setSelectedPollId] = useState<string | null>(null);
-  const [localLoading, setLocalLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [pollData, setPollData] = useState<Poll | null>(null);
   const [currentVoteResult, setCurrentVoteResult] = useState<{ hasVoted: boolean; optionId: number }>({ 
     hasVoted: false, 
     optionId: 0 
   });
+  const [pollError, setPollError] = useState(false);
   const isMounted = useRef(true);
+  const { address } = useAccount();
   
   // Cleanup on unmount
   useEffect(() => {
@@ -45,33 +49,6 @@ export default function Home() {
     loadUserPolls();
   }, [loadUserPolls]);
 
-  // Fetch vote result when poll data changes
-  useEffect(() => {
-    if (pollData && pollData.id) {
-      const fetchVoteResult = async () => {
-        try {
-          // Force a fresh check from the blockchain
-          const result = await getVoteResult(true);
-          if (isMounted.current) {
-            setCurrentVoteResult(result);
-          }
-        } catch (error) {
-          console.error("Error fetching vote result:", error);
-          if (isMounted.current) {
-            setCurrentVoteResult({ hasVoted: false, optionId: 0 });
-          }
-        }
-      };
-      
-      // Execute immediately but also add a backup timeout
-      fetchVoteResult();
-      
-      // Add a second check after a delay to make sure we get the latest data
-      const timeoutId = setTimeout(fetchVoteResult, 500);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [pollData, getVoteResult]);
-
   // Reload polls when activeTab changes to "vote"
   useEffect(() => {
     if (activeTab === "vote") {
@@ -81,47 +58,66 @@ export default function Home() {
     }
   }, [activeTab, loadUserPolls]);
 
-  // Handle loading a specific poll
-  const handleLoadPoll = (pollId: string) => {
+  // Load a specific poll - simplified with clean approach
+  const handleLoadPoll = useCallback(async (pollId: string) => {
     setSelectedPollId(pollId);
-    setLocalLoading(true);
+    setIsLoading(true);
+    setPollError(false);
     
-    // First fetch the poll data
-    fetchPoll(pollId as `0x${string}`);
-    
-    // Force a vote result refresh with a longer delay to ensure the poll data is fully loaded
-    setTimeout(async () => {
-      if (getVoteResult) {
-        try {
-          // Force bypass cache to get fresh data
-          const result = await getVoteResult(true);
-          setCurrentVoteResult(result);
-        } catch (error) {
-          console.error("Error fetching vote result:", error);
-          setCurrentVoteResult({ hasVoted: false, optionId: 0 });
-        }
+    try {
+      // Always force a fresh fetch from the blockchain
+      const result = await loadPollDetails(
+        pollId as `0x${string}`, 
+        address as `0x${string}` || undefined
+      );
+      
+      if (isMounted.current) {
+        setPollData(result.pollData);
+        setCurrentVoteResult(result.voteResult);
+        setPollError(!result.pollData);
       }
-    }, 800); // Increased timeout to ensure data is loaded
-  };
-
-  // When poll data or loading status changes, update local loading state
-  useEffect(() => {
-    if (!isPollLoading && selectedPollId) {
-      // Allow a small delay for the UI to update
-      const timer = setTimeout(() => {
-        setLocalLoading(false);
-      }, 200);
-      return () => clearTimeout(timer);
+    } catch (error) {
+      console.error("Error loading poll:", error);
+      if (isMounted.current) {
+        setPollError(true);
+      }
+    } finally {
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
     }
-  }, [isPollLoading, selectedPollId, pollData]);
+  }, [address]);
 
   // Clear the selected poll
   const handleBackToList = () => {
     setSelectedPollId(null);
+    setPollData(null);
+    setCurrentVoteResult({ hasVoted: false, optionId: 0 });
   };
 
-  // Determine if we're in a loading state
-  const isLoading = isPollLoading || localLoading;
+  // Handle successful vote with data refetch
+  const handleVoteSuccess = useCallback(async () => {
+    if (selectedPollId) {
+      setIsLoading(true);
+      try {
+        const result = await loadPollDetails(
+          selectedPollId as `0x${string}`, 
+          address as `0x${string}` || undefined
+        );
+        
+        if (isMounted.current) {
+          setPollData(result.pollData);
+          setCurrentVoteResult(result.voteResult);
+        }
+      } catch (error) {
+        console.error("Error refreshing poll data after vote:", error);
+      } finally {
+        if (isMounted.current) {
+          setIsLoading(false);
+        }
+      }
+    }
+  }, [selectedPollId, address]);
 
   return (
     <main className="flex min-h-screen flex-col bg-base-light dark:bg-base-dark">
@@ -204,7 +200,7 @@ export default function Home() {
                       <p className="text-center">Loading poll data...</p>
                     </div>
                   </div>
-                ) : isPollError ? (
+                ) : pollError ? (
                   <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
                     <p className="text-center text-red-500">Error loading poll data</p>
                   </div>
@@ -213,7 +209,11 @@ export default function Home() {
                     <p className="text-center">No poll data available</p>
                   </div>
                 ) : (
-                  <PollCard poll={pollData} voteResult={currentVoteResult} />
+                  <PollCard 
+                    poll={pollData} 
+                    voteResult={currentVoteResult} 
+                    onVoteSuccess={handleVoteSuccess}
+                  />
                 )}
               </div>
             ) : (
