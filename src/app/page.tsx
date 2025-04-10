@@ -18,12 +18,14 @@ export default function Home() {
   const [userPolls, setUserPolls] = useState<StoredPoll[]>([]);
   const [selectedPollId, setSelectedPollId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPolls, setIsLoadingPolls] = useState(true);
   const [pollData, setPollData] = useState<Poll | null>(null);
   const [currentVoteResult, setCurrentVoteResult] = useState<{ hasVoted: boolean; optionId: number }>({ 
     hasVoted: false, 
     optionId: 0 
   });
   const [pollError, setPollError] = useState(false);
+  const [pollsLoaded, setPollsLoaded] = useState(false);
   const isMounted = useRef(true);
   const { address } = useAccount();
   
@@ -36,12 +38,17 @@ export default function Home() {
   
   // Create a memoized function to fetch polls from localStorage
   const loadUserPolls = useCallback(() => {
+    setIsLoadingPolls(true);
     const storedPolls = getCreatedPolls();
     if (storedPolls.length > 0) {
       // Sort by creation date descending (newest first)
       const sortedPolls = storedPolls.sort((a, b) => b.createdAt - a.createdAt);
       setUserPolls(sortedPolls);
+    } else {
+      setUserPolls([]);
     }
+    setPollsLoaded(true);
+    setIsLoadingPolls(false);
   }, []);
 
   // Load user polls from localStorage on component mount
@@ -57,6 +64,13 @@ export default function Home() {
       setSelectedPollId(null);
     }
   }, [activeTab, loadUserPolls]);
+
+  // Switch to Create Poll tab only after polls are confirmed to be loaded and empty
+  useEffect(() => {
+    if (activeTab === "vote" && pollsLoaded && userPolls.length === 0) {
+      setActiveTab("create");
+    }
+  }, [activeTab, userPolls.length, pollsLoaded]);
 
   // Load a specific poll - simplified with clean approach
   const handleLoadPoll = useCallback(async (pollId: string) => {
@@ -154,16 +168,6 @@ export default function Home() {
               >
                 Create Poll
               </button>
-              <button
-                onClick={() => setActiveTab("import")}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === "import"
-                    ? "bg-green-100 dark:bg-green-950/30 text-green-700"
-                    : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                }`}
-              >
-                Import
-              </button>
             </div>
             
             <div className="hidden md:block">
@@ -176,11 +180,21 @@ export default function Home() {
       <section className="container mx-auto px-4 py-8">
         {activeTab === "vote" ? (
           <div className="max-w-lg mx-auto">
-            {userPolls.length === 0 ? (
-              <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 md:p-6 shadow-sm">
-                <p className="text-center">No polls found. Create a poll to get started!</p>
-              </div>
-            ) : selectedPollId ? (
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Your Polls</h2>
+              <Button 
+                onClick={() => setActiveTab("import")}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+                Import Poll
+              </Button>
+            </div>
+            
+            {selectedPollId ? (
               // Show selected poll details
               <div className="space-y-4">
                 <button 
@@ -216,11 +230,34 @@ export default function Home() {
                   />
                 )}
               </div>
+            ) : isLoadingPolls ? (
+              // Loading state
+              <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-8 shadow-sm">
+                <div className="flex flex-col items-center justify-center py-4">
+                  <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mb-2"></div>
+                  <p className="text-center text-gray-500">Loading polls...</p>
+                </div>
+              </div>
+            ) : pollsLoaded && userPolls.length === 0 ? (
+              // Empty state - only shown when polls are confirmed to be loaded and empty
+              <div className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-8 shadow-sm text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <p className="text-lg mb-4">No polls found</p>
+                <div className="flex justify-center">
+                  <Button 
+                    onClick={() => setActiveTab("create")}
+                    variant="primary"
+                    className="bg-base-purple hover:bg-purple-700"
+                  >
+                    Create Your First Poll
+                  </Button>
+                </div>
+              </div>
             ) : (
               // Show list of polls
-              <div className="space-y-4">
-                <h2 className="text-xl font-bold mb-4">Your Polls</h2>
-                
+              <div className="grid gap-4">
                 {userPolls.map((poll) => {
                   const ended = isPollEnded(poll.deadline);
                   const formattedDate = formatDate(poll.deadline);
@@ -228,23 +265,28 @@ export default function Home() {
                   return (
                     <div 
                       key={poll.id} 
-                      className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
+                      className="bg-white dark:bg-base-dark border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow"
                     >
-                      <h3 className="font-medium text-lg mb-2">{poll.question}</h3>
-                      <div className="flex flex-wrap justify-between text-sm mb-3">
-                        <span className="text-gray-500 dark:text-gray-400">
-                          {ended ? "Ended on" : "Ends on"}: {formattedDate}
+                      <h3 className="font-medium text-lg mb-3">{poll.question}</h3>
+                      <div className="flex flex-wrap justify-between text-sm mb-4">
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          ended 
+                            ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300" 
+                            : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+                        }`}>
+                          {ended ? "Ended" : "Active"}
                         </span>
                         <span className="text-gray-500 dark:text-gray-400">
-                          {poll.options.length} options
+                          {ended ? "Ended on" : "Ends on"}: {formattedDate}
                         </span>
                       </div>
                       <Button
                         onClick={() => handleLoadPoll(poll.id)}
                         variant="outline"
                         fullWidth
+                        className="hover:bg-blue-50 dark:hover:bg-blue-950/20"
                       >
-                        Load Poll Details
+                        View Results
                       </Button>
                     </div>
                   );
@@ -253,19 +295,12 @@ export default function Home() {
             )}
           </div>
         ) : activeTab === "create" ? (
-          <div className="max-w-lg mx-auto">
-            <CreatePollForm />
-          </div>
+          <CreatePollForm />
         ) : (
-          <div className="max-w-lg mx-auto">
-            <ImportPollForm 
-              onSuccess={() => {
-                // Reload polls and switch to vote tab
-                loadUserPolls();
-                setActiveTab("vote");
-              }}
-            />
-          </div>
+          <ImportPollForm onSuccess={() => {
+            loadUserPolls();
+            setActiveTab("vote");
+          }} />
         )}
       </section>
 
