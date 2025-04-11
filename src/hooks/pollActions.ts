@@ -53,7 +53,7 @@ export async function createPoll(
       });
 
       return hash;
-    } catch (error) {
+    } catch {
       // Return null silently without logging
       return null;
     }

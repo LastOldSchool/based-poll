@@ -5,10 +5,15 @@ import { formatAddress } from '@/utils/reown';
 import { useAppKit, useAppKitAccount } from "@reown/appkit/react";
 import { Button } from "./ui/Button";
 
+interface ReownConnectProps {
+  fullWidth?: boolean;
+}
+
 /**
  * Wallet connection component using Reown AppKit
+ * @param fullWidth - Whether the button should take full width
  */
-export default function ReownConnect() {
+export default function ReownConnect({ fullWidth = false }: ReownConnectProps) {
   const { open } = useAppKit();
   const { address, isConnected } = useAppKitAccount();
   const [isPending, setIsPending] = useState(false);
@@ -47,6 +52,7 @@ export default function ReownConnect() {
         <Button
           variant="primary"
           size="lg"
+          fullWidth={fullWidth}
         >
           Connect Wallet
         </Button>
@@ -55,12 +61,13 @@ export default function ReownConnect() {
   }
 
   return (
-    <div className="relative">
+    <div className={`relative ${fullWidth ? 'w-full' : ''}`}>
       {isConnected ? (
         <Button
           onClick={handleDisconnect}
           variant="secondary"
           size="lg"
+          fullWidth={fullWidth}
         >
           <span className="hidden md:inline-block mr-2">Connected:</span>
           <span>{address ? formatAddress(address) : "..."}</span>
@@ -72,6 +79,7 @@ export default function ReownConnect() {
           isLoading={isPending}
           variant="primary"
           size="lg"
+          fullWidth={fullWidth}
         >
           Connect Wallet
         </Button>

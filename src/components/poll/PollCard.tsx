@@ -13,6 +13,7 @@ import VoteResults from "./VoteResults";
 import { formatAddress } from '@/utils/reown';
 import { exportPollToJson } from '@/utils/poll-utils';
 import PollSystemInfoModal from "./PollSystemInfoModal";
+import ReownConnect from '@/components/ReownConnect';
 
 interface PollCardProps {
   poll: Poll;
@@ -117,8 +118,8 @@ export function PollCard({
     }
 
     if (!isConnected || !address) {
-      // Trigger the wallet connect event instead of showing an error
-      window.dispatchEvent(new CustomEvent('connect-wallet'));
+      // No need to trigger wallet connect event, we'll show the connect button instead
+      setVoteError("Please connect your wallet to vote");
       return;
     }
 
@@ -303,7 +304,7 @@ export function PollCard({
                   label={option.text}
                   selected={selectedOption === idx + 1}
                   onSelect={handleOptionSelect}
-                  disabled={isVoting || pollHasEnded || voteStatus.hasVoted}
+                  disabled={!isConnected || isVoting || pollHasEnded || voteStatus.hasVoted}
                 />
               ))}
               
@@ -339,15 +340,21 @@ export function PollCard({
         
         {!showResults && !pollHasEnded && !voteStatus.hasVoted && (
           <CardFooter>
-            <Button
-              onClick={handleVoteSubmit}
-              fullWidth
-              isLoading={isVoting}
-              disabled={!selectedOption || isVoting}
-              className="shadow-sm hover:shadow-md transition-all duration-200"
-            >
-              Vote
-            </Button>
+            {isConnected ? (
+              <Button
+                onClick={handleVoteSubmit}
+                fullWidth
+                isLoading={isVoting}
+                disabled={!selectedOption || isVoting}
+                className="shadow-sm hover:shadow-md transition-all duration-200"
+              >
+                Vote
+              </Button>
+            ) : (
+              <div className="w-full">
+                <ReownConnect fullWidth />
+              </div>
+            )}
           </CardFooter>
         )}
         
