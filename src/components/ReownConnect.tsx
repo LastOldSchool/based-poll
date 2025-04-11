@@ -52,11 +52,11 @@ export default function ReownConnect({ fullWidth = false }: ReownConnectProps) {
       <div className="relative">
         <Button
           variant="primary"
-          size="lg"
+          size="md"
           fullWidth={fullWidth}
         >
           <div className="flex items-center justify-center">
-            <WalletIcon className="mr-2" size={18} />
+            <WalletIcon className="mr-2" size={16} />
             <span>Connect Wallet</span>
           </div>
         </Button>
@@ -70,7 +70,7 @@ export default function ReownConnect({ fullWidth = false }: ReownConnectProps) {
         <Button
           onClick={handleDisconnect}
           variant="secondary"
-          size="lg"
+          size="md"
           fullWidth={fullWidth}
         >
           <span className="hidden md:inline-block mr-2">Connected:</span>
@@ -82,11 +82,11 @@ export default function ReownConnect({ fullWidth = false }: ReownConnectProps) {
           disabled={isPending}
           isLoading={isPending}
           variant="primary"
-          size="lg"
+          size="md"
           fullWidth={fullWidth}
         >
           <div className="flex items-center justify-center">
-            {!isPending && <WalletIcon className="mr-2" size={18} />}
+            {!isPending && <WalletIcon className="mr-2" size={16} />}
             <span>Connect Wallet</span>
           </div>
         </Button>
