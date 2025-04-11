@@ -54,7 +54,7 @@ export async function createPoll(
 
       return hash;
     } catch (error) {
-      console.error("Error creating poll on chain:", error);
+      // Return null silently without logging
       return null;
     }
   }
@@ -95,19 +95,10 @@ export async function vote(
   }
 
   try {
-    console.log(`Submitting vote for poll ID: ${pollId}, option: ${optionId}`);
-
     // Ensure prePollId is properly formatted
     const formattedPrePollId = prePollId.startsWith("0x")
       ? (prePollId as `0x${string}`)
       : (`0x${prePollId}` as `0x${string}`);
-
-    console.log(`Voting with params:`, {
-      prePollId: formattedPrePollId,
-      optionId,
-      optionCount,
-      deadline,
-    });
 
     // Submit vote to blockchain
     const hash = await walletClient.writeContract({
@@ -122,8 +113,6 @@ export async function vote(
       ],
     });
 
-    console.log(`Vote submitted with hash: ${hash}`);
-
     // After successful vote, immediately refetch poll data
     if (onSuccess) {
       await new Promise((resolve) => setTimeout(resolve, 500)); // Small delay to allow network propagation
@@ -132,7 +121,7 @@ export async function vote(
 
     return hash;
   } catch (error) {
-    console.error("Error voting:", error);
+    // Silently throw the error without logging
     throw error;
   }
 } 

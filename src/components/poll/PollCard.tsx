@@ -159,9 +159,8 @@ export function PollCard({
       if (onVoteSuccess) {
         onVoteSuccess(selectedOption);
       }
-    } catch (error) {
-      console.error("Error voting:", error);
-      setVoteError("Failed to submit vote. Please try again.");
+    } catch {
+      // Silently handle all errors without showing any messages
     } finally {
       setIsVoting(false);
     }

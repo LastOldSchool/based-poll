@@ -38,8 +38,8 @@ export default function Home() {
       if (isMounted.current) {
         setCurrentVoteResult(voteResult);
       }
-    } catch (error) {
-      console.error("Error checking vote status:", error);
+    } catch {
+      // Silently handle errors when checking vote status
       if (isMounted.current) {
         setCurrentVoteResult({ hasVoted: false, optionId: 0 });
       }
