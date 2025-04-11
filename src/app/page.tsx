@@ -122,21 +122,50 @@ export default function Home() {
   }, [address, pollData, checkVoteStatus]);
 
   // Handle successful vote
-  const handleVoteSuccess = async () => {
+  const handleVoteSuccess = async (optionId?: number) => {
     if (!pollData || !address) return;
     
     try {
-      // Reload poll data and vote status from blockchain
-      const updatedPoll = await pollContract.getPoll(pollData.id, true);
-      if (updatedPoll && updatedPoll.voteCounts) {
+      // Optimistically update UI if option ID was provided
+      if (optionId && !currentVoteResult.hasVoted) {
+        // Create a new vote counts array with optionId incremented by 1
+        const updatedVoteCounts = [...pollData.voteCounts];
+        updatedVoteCounts[optionId - 1] = Number(updatedVoteCounts[optionId - 1] || 0) + 1;
+        
+        // Update poll data with optimistic changes
         setPollData({
           ...pollData,
-          voteCounts: updatedPoll.voteCounts
+          voteCounts: updatedVoteCounts
         });
+        
+        // Update vote result
+        setCurrentVoteResult({
+          hasVoted: true,
+          optionId: optionId
+        });
+        
+        // We rely purely on the optimistic update for immediate UI feedback
+        // and don't do any blockchain queries until later
       }
       
-      // Get updated vote status
-      await checkVoteStatus(pollData.id);
+      // Schedule a background update after a significant delay to avoid race conditions
+      // This ensures the transaction has time to be processed
+      const updateTimeout = setTimeout(async () => {
+        try {
+          const updatedPoll = await pollContract.getPoll(pollData.id, true);
+          if (updatedPoll && updatedPoll.voteCounts && isMounted.current) {
+            setPollData(prevPollData => ({
+              ...prevPollData!,
+              voteCounts: updatedPoll.voteCounts
+            }));
+          }
+        } catch (error) {
+          console.error("Error in delayed poll update:", error);
+        }
+      }, 5000); // 5 second delay
+      
+      // Clean up timeout if component unmounts
+      return () => clearTimeout(updateTimeout);
     } catch (error) {
       console.error("Error refreshing data after vote:", error);
     }

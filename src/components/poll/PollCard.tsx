@@ -18,7 +18,7 @@ interface PollCardProps {
   poll: Poll;
   className?: string;
   voteResult?: { hasVoted: boolean; optionId: number };
-  onVoteSuccess?: () => void;
+  onVoteSuccess?: (optionId: number) => void;
   /** Pre-poll ID used to calculate the poll ID */
   prePollId?: string;
 }
@@ -54,6 +54,7 @@ export function PollCard({
   const [showSystemInfo, setShowSystemInfo] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const isMounted = useRef(true);
+  const [updatedPoll, setUpdatedPoll] = useState<Poll | null>(null);
 
   // Set isMounted to false when component unmounts
   useEffect(() => {
@@ -94,6 +95,9 @@ export function PollCard({
     // Check if poll has ended
     const now = Math.floor(Date.now() / 1000);
     setPollHasEnded(now > poll.deadline);
+    
+    // Set the initial updated poll data
+    setUpdatedPoll(poll);
 
     // Always refetch poll data from chain to get latest votes
     if (isMounted.current) {
@@ -132,12 +136,28 @@ export function PollCard({
       
       await vote(poll.id, selectedOption, effectivePrePollId, poll.optionCount, poll.deadline);
       
+      // Optimistically update UI with the vote
+      // 1. Update vote status
+      const newVoteStatus = { hasVoted: true, optionId: selectedOption };
+      setVoteStatus(newVoteStatus);
+
+      // 2. Update vote counts in the local poll data
+      const updatedVoteCounts = [...poll.voteCounts];
+      updatedVoteCounts[selectedOption - 1] = updatedVoteCounts[selectedOption - 1] + 1;
+      
+      // 3. Set updated poll data with new vote counts
+      const newPollData = {
+        ...poll,
+        voteCounts: updatedVoteCounts
+      };
+      setUpdatedPoll(newPollData);
+      
       // Show results after successful vote
       setShowResults(true);
       
-      // Call the success callback if provided
+      // Call the success callback if provided, passing the selected option ID
       if (onVoteSuccess) {
-        onVoteSuccess();
+        onVoteSuccess(selectedOption);
       }
     } catch (error) {
       console.error("Error voting:", error);
@@ -271,7 +291,7 @@ export function PollCard({
         <CardContent>
           {showResults ? (
             <VoteResults
-              poll={poll}
+              poll={updatedPoll || poll}
               userVoteOptionId={voteStatus.hasVoted ? voteStatus.optionId : undefined}
               className="mt-2"
             />
@@ -299,7 +319,17 @@ export function PollCard({
           <div className="mt-5 text-sm text-gray-500 dark:text-gray-400">
             <div className="flex justify-between items-center">
               <div>
-                Total votes: <span className="font-medium text-gray-700 dark:text-gray-300">{poll.voteCounts?.reduce((sum, count) => sum + count, 0) || 0}</span>
+                Total votes: <span className="font-medium text-gray-700 dark:text-gray-300">
+                  {voteStatus.hasVoted ? 
+                    "1" : 
+                    (() => {
+                      const totalVotes = (updatedPoll || poll).voteCounts?.reduce((sum, count) => 
+                        Number(sum) + Number(count), 0
+                      ) || 0;
+                      return isNaN(totalVotes) ? "0" : totalVotes;
+                    })()
+                  }
+                </span>
               </div>
               <div>
                 Created by: <span className="font-medium text-gray-700 dark:text-gray-300">{formatAddress(poll.id.substring(0, 42))}</span>

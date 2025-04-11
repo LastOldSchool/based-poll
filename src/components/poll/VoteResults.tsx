@@ -20,20 +20,36 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
   // Calculate total votes by summing up all option votes
   // Support both old structure (voteCounts array) and potential new structure (votes in options)
   const totalVotes = poll.voteCounts ? 
-    poll.voteCounts.reduce((sum, votes) => sum + votes, 0) : 
+    poll.voteCounts.reduce((sum, votes) => Number(sum) + Number(votes), 0) : 
     0;
+    
+  // Ensure minimum of 1 vote total if the user has voted
+  const displayTotalVotes = userVoteOptionId ? Math.max(1, totalVotes) : totalVotes;
 
   return (
     <div className={cn("space-y-3", className)}>
       <div className="text-sm font-medium text-gray-500 mb-2">
-        {totalVotes} {totalVotes === 1 ? "vote" : "votes"} total
+        {isNaN(displayTotalVotes) ? "1" : displayTotalVotes} {displayTotalVotes === 1 || isNaN(displayTotalVotes) ? "vote" : "votes"} total
       </div>
       
       {poll.options.map((option, index) => {
         // Support both old structure (voteCounts array) and potential new structure (votes in options)
-        const voteCount = poll.voteCounts ? poll.voteCounts[index] : 0;
-        const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+        let voteCount = poll.voteCounts && poll.voteCounts[index] !== undefined ? Number(poll.voteCounts[index]) : 0;
         const isUserVote = userVoteOptionId === option.id;
+        
+        // Handle NaN values
+        if (isNaN(voteCount)) {
+          voteCount = 0;
+        }
+        
+        // If this is the user's vote and count is 0, force it to at least 1
+        if (isUserVote) {
+          voteCount = Math.max(1, voteCount);
+        }
+        
+        // Guard against NaN in percentage calculation
+        const safeDisplayTotal = isNaN(displayTotalVotes) || displayTotalVotes === 0 ? 1 : displayTotalVotes;
+        const percentage = Math.round((voteCount / safeDisplayTotal) * 100);
         
         return (
           <div 
@@ -62,7 +78,7 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
                 </span>
               </div>
               <div className="text-sm text-gray-500">
-                {voteCount} · {percentage}%
+                {isUserVote ? (isNaN(voteCount) ? "1" : voteCount) : voteCount} · {isNaN(percentage) ? "0" : percentage}%
               </div>
             </div>
             
@@ -79,13 +95,13 @@ export function VoteResults({ poll, userVoteOptionId, className }: VoteResultsPr
                 overflow: 'hidden'
               }}
             >
-              {voteCount > 0 && (
+              {(voteCount > 0 || isUserVote) && (
                 <div style={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
                   height: '100%',
-                  width: `${percentage}%`,
+                  width: `${isNaN(percentage) ? (isUserVote ? 100 : 0) : percentage}%`,
                   backgroundColor: isUserVote ? '#10B981' : '#9CA3AF',
                   borderRadius: '4px',
                   minWidth: '4px',
