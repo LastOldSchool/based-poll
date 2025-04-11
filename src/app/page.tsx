@@ -83,7 +83,8 @@ export default function Home() {
         options: data.options,
         optionCount: data.optionCount,
         voteCounts: voteCounts,
-        exists: blockchainPoll?.exists || true
+        exists: blockchainPoll?.exists || true,
+        prePollId
       };
       
       if (isMounted.current) {
@@ -174,6 +175,7 @@ export default function Home() {
               poll={pollData} 
               voteResult={currentVoteResult} 
               onVoteSuccess={handleVoteSuccess}
+              prePollId={pollData.prePollId}
             />
           )}
         </div>

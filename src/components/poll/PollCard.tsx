@@ -127,7 +127,10 @@ export function PollCard({
     setVoteError(null);
 
     try {
-      await vote(poll.id, selectedOption, prePollId, poll.optionCount, poll.deadline);
+      // Use the provided prePollId if available, otherwise use the poll's prePollId
+      const effectivePrePollId = prePollId || poll.prePollId;
+      
+      await vote(poll.id, selectedOption, effectivePrePollId, poll.optionCount, poll.deadline);
       
       // Show results after successful vote
       setShowResults(true);

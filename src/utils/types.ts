@@ -17,6 +17,7 @@ export interface Poll {
   voteCounts: number[];
   optionCount: number;
   exists: boolean;
+  prePollId?: `0x${string}`;
 }
 
 /**

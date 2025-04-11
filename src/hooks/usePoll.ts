@@ -95,14 +95,16 @@ export function usePoll() {
     const currentPollId = pollId; // Capture current value to use in callback
     
     if (!prePollId || !optionCount || !deadline) {
-      if (!pollData) {
-        throw new Error("Poll data required for voting");
+      // Check if we have poll data to use for defaults
+      if (pollData) {
+        // Use defaults from pollData if available
+        prePollId = prePollId || "";
+        optionCount = optionCount || pollData.optionCount;
+        deadline = deadline || pollData.deadline;
+      } else {
+        // If no poll data and missing required params, throw error
+        throw new Error("Missing required parameters for voting: prePollId, optionCount, and deadline");
       }
-      
-      // Use defaults from pollData if not provided
-      prePollId = prePollId || "";
-      optionCount = optionCount || pollData.optionCount;
-      deadline = deadline || pollData.deadline;
     }
     
     return await voteAction(
