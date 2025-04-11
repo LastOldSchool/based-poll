@@ -120,8 +120,8 @@ export function Button({
         <motion.div 
           className="absolute top-0 left-0 w-full h-full bg-white opacity-10"
           style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%, 0% 100%)" }}
-          animate={{ y: "-100%" }}
-          initial={{ y: "100%" }}
+          animate={{ x: "100%" }}
+          initial={{ x: "-100%" }}
           transition={{ duration: 1.5, ease: "easeInOut", repeat: Infinity, repeatDelay: 0.5 }}
         />
         
