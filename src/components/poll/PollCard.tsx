@@ -248,16 +248,6 @@ export function PollCard({
                     <button
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       role="menuitem"
-                      onClick={handleExportPoll}
-                    >
-                      <span className="flex items-center">
-                        <Download className="mr-2 h-4 w-4" />
-                        Export Poll
-                      </span>
-                    </button>
-                    <button
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      role="menuitem"
                       onClick={handleViewSystemInfo}
                     >
                       <span className="flex items-center">
@@ -330,9 +320,6 @@ export function PollCard({
                     })()
                   }
                 </span>
-              </div>
-              <div>
-                Created by: <span className="font-medium text-gray-700 dark:text-gray-300">{formatAddress(poll.id.substring(0, 42))}</span>
               </div>
             </div>
           </div>
