@@ -12,6 +12,7 @@ import { CircleCheck, MoreVertical, Eye, InfoIcon } from "lucide-react";
 import VoteResults from "./VoteResults";
 import PollSystemInfoModal from "./PollSystemInfoModal";
 import ReownConnect from '@/components/ReownConnect';
+import VoteIcon from '@/components/icons/VoteIcon';
 
 interface PollCardProps {
   poll: Poll;
@@ -295,7 +296,10 @@ export function PollCard({
                 disabled={!selectedOption || isVoting}
                 className="shadow-sm hover:shadow-md transition-all duration-200"
               >
-                Vote
+                <div className="flex items-center justify-center">
+                  {!isVoting && <VoteIcon className="mr-2" size={18} />}
+                  <span>Vote</span>
+                </div>
               </Button>
             ) : (
               <div className="w-full">

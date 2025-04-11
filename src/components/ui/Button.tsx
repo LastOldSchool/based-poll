@@ -61,7 +61,7 @@ export function Button({
     danger: "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 disabled:bg-red-300 dark:disabled:bg-red-800 shadow-md hover:shadow-lg",
     success: "bg-green-600 text-white hover:bg-green-700 active:bg-green-800 disabled:bg-green-300 dark:disabled:bg-green-800 shadow-md hover:shadow-lg",
     transfer: "bg-orange-500 text-white hover:bg-orange-600 hover:shadow-lg active:bg-orange-700 disabled:bg-orange-300 dark:disabled:bg-orange-800 shadow-md",
-    vote: "bg-blue-100 text-blue-900 font-semibold hover:bg-blue-200 active:bg-blue-300 disabled:bg-blue-50 disabled:text-blue-400 dark:bg-blue-900 dark:text-blue-100 dark:hover:bg-blue-800 dark:active:bg-blue-700 dark:disabled:bg-blue-950 dark:disabled:text-blue-300 shadow-md hover:shadow-lg",
+    vote: "text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-emerald-400 dark:disabled:bg-emerald-800 relative overflow-hidden group shadow-md hover:shadow-lg",
   };
   
   // Width class
@@ -87,10 +87,23 @@ export function Button({
   );
   
   // For the primary variant, render a motion button with animations
-  if (variant === "primary" && !isDisabled) {
+  if ((variant === "primary" || variant === "vote") && !isDisabled) {
     // Extract event handlers that might conflict with Framer Motion's types
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { onDrag, onDragEnd, onDragStart, ...restProps } = props;
+    
+    // Different gradients based on variant
+    const gradientClasses = variant === "primary" 
+      ? "bg-gradient-to-r from-blue-500 to-indigo-600" 
+      : "bg-gradient-to-r from-emerald-500 to-green-600";
+    
+    const hoverGradientClasses = variant === "primary"
+      ? "bg-gradient-to-r from-indigo-600 to-blue-500"
+      : "bg-gradient-to-r from-green-600 to-emerald-500";
+    
+    const glowColors = variant === "primary" 
+      ? ["rgba(59, 130, 246, 0.5)", "rgba(79, 70, 229, 0.5)", "rgba(59, 130, 246, 0.5)"]
+      : ["rgba(16, 185, 129, 0.5)", "rgba(5, 150, 105, 0.5)", "rgba(16, 185, 129, 0.5)"];
     
     return (
       <motion.button
@@ -106,11 +119,11 @@ export function Button({
         </div>
 
         {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 shadow-lg" />
+        <div className={`absolute inset-0 ${gradientClasses} shadow-lg`} />
         
         {/* Hover gradient effect */}
         <motion.div 
-          className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-blue-500 opacity-0 group-hover:opacity-100"
+          className={`absolute inset-0 ${hoverGradientClasses} opacity-0 group-hover:opacity-100`}
           initial={{ x: "-100%" }}
           whileHover={{ x: 0 }}
           transition={{ type: "spring", stiffness: 100, damping: 20 }}
@@ -129,7 +142,7 @@ export function Button({
         <motion.div 
           className="absolute -inset-1 opacity-20 rounded-lg blur-md"
           animate={{ 
-            background: ["rgba(59, 130, 246, 0.5)", "rgba(79, 70, 229, 0.5)", "rgba(59, 130, 246, 0.5)"] 
+            background: glowColors
           }}
           transition={{ duration: 2, repeat: Infinity }}
         />
