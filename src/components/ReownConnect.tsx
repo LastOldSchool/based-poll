@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { formatAddress } from '@/utils/reown';
 import { useAppKit, useAppKitAccount } from "@reown/appkit/react";
 import { Button } from "./ui/Button";
+import WalletIcon from "./icons/WalletIcon";
 
 interface ReownConnectProps {
   fullWidth?: boolean;
@@ -54,7 +55,10 @@ export default function ReownConnect({ fullWidth = false }: ReownConnectProps) {
           size="lg"
           fullWidth={fullWidth}
         >
-          Connect Wallet
+          <div className="flex items-center justify-center">
+            <WalletIcon className="mr-2" size={18} />
+            <span>Connect Wallet</span>
+          </div>
         </Button>
       </div>
     );
@@ -81,7 +85,10 @@ export default function ReownConnect({ fullWidth = false }: ReownConnectProps) {
           size="lg"
           fullWidth={fullWidth}
         >
-          Connect Wallet
+          <div className="flex items-center justify-center">
+            {!isPending && <WalletIcon className="mr-2" size={18} />}
+            <span>Connect Wallet</span>
+          </div>
         </Button>
       )}
     </div>
