@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { formatAddress } from "../utils/reown";
 import { useAccount } from "wagmi";
+import { motion } from "framer-motion";
 
 /**
  * Wallet connection component using Wagmi
@@ -77,7 +78,7 @@ export default function WalletConnect() {
     return (
       <div className="relative">
         <button
-          className="px-4 py-2 rounded-lg bg-base-blue text-white font-medium hover:bg-opacity-90 transition-all"
+          className="px-4 py-2 rounded-lg bg-base-blue text-white font-medium transition-all"
         >
           Connect Wallet
         </button>
@@ -96,13 +97,43 @@ export default function WalletConnect() {
           <span>{address ? formatAddress(address) : "..."}</span>
         </button>
       ) : (
-        <button
+        <motion.button
           onClick={handleConnect}
           disabled={isPending}
-          className="px-4 py-2 rounded-lg bg-base-blue text-white font-medium hover:bg-opacity-90 transition-all disabled:opacity-70"
+          className="px-6 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium shadow-lg transition-all disabled:opacity-70 relative overflow-hidden group"
+          whileHover={{ 
+            scale: 1.05,
+            boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.5)" 
+          }}
+          whileTap={{ scale: 0.98 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 15 }}
         >
-          {isPending ? "Connecting..." : "Connect Wallet"}
-        </button>
+          <span className="relative z-10">
+            {isPending ? "Connecting..." : "Connect Wallet"}
+          </span>
+          <motion.span 
+            className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-blue-500 opacity-0 group-hover:opacity-100"
+            initial={{ x: "-100%" }}
+            whileHover={{ x: 0 }}
+            transition={{ type: "spring", stiffness: 100, damping: 20 }}
+          />
+          <motion.span 
+            className="absolute top-0 left-0 w-full h-full bg-white opacity-10"
+            style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%, 0% 100%)" }}
+            initial={{ y: "100%" }}
+            whileHover={{ y: "-100%" }}
+            transition={{ duration: 0.7, ease: "easeInOut", repeat: Infinity }}
+          />
+          <motion.span 
+            className="absolute -inset-1 opacity-20 rounded-lg blur-md"
+            animate={{ 
+              background: ["rgba(59, 130, 246, 0.5)", "rgba(79, 70, 229, 0.5)", "rgba(59, 130, 246, 0.5)"] 
+            }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+        </motion.button>
       )}
 
       {isModalOpen && !isConnected && (

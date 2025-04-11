@@ -8,10 +8,8 @@ import { useAccount } from "wagmi";
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { VoteOption } from "./VoteOption";
-import { CircleCheck, MoreVertical, Eye, InfoIcon, Download } from "lucide-react";
+import { CircleCheck, MoreVertical, Eye, InfoIcon } from "lucide-react";
 import VoteResults from "./VoteResults";
-import { formatAddress } from '@/utils/reown';
-import { exportPollToJson } from '@/utils/poll-utils';
 import PollSystemInfoModal from "./PollSystemInfoModal";
 import ReownConnect from '@/components/ReownConnect';
 
@@ -167,45 +165,6 @@ export function PollCard({
     }
   };
 
-  const handleExportPoll = () => {
-    try {
-      // Create a simplistic export without localStorage data
-      const exportablePoll = {
-        id: poll.id,
-        prePollId: prePollId || "",
-        question: poll.question,
-        options: poll.options,
-        deadline: poll.deadline,
-        optionCount: poll.optionCount,
-        createdAt: Math.floor(Date.now() / 1000)
-      };
-      
-      // Convert poll to JSON
-      const pollJson = exportPollToJson(exportablePoll);
-      
-      // Create a blob and download link
-      const blob = new Blob([pollJson], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      
-      // Create a temporary link element and trigger download
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `poll-${poll.id.slice(0, 8)}.json`;
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      // Close menu after export
-      setMenuOpen(false);
-    } catch (error) {
-      console.error("Error exporting poll:", error);
-      // You might want to show an error message to the user here
-    }
-  };
-  
   const handleViewResults = () => {
     setShowResults(true);
     setMenuOpen(false);
@@ -331,6 +290,7 @@ export function PollCard({
               <Button
                 onClick={handleVoteSubmit}
                 fullWidth
+                variant="vote"
                 isLoading={isVoting}
                 disabled={!selectedOption || isVoting}
                 className="shadow-sm hover:shadow-md transition-all duration-200"

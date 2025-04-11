@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import PollCard from "../components/poll/PollCard";
 import Footer from "../components/Footer";
 import { Poll } from "../utils/types";
-import WalletConnect from "../components/WalletConnect";
 import { generatePrePollId, calculatePollId } from "../utils/poll-utils";
 import { pollContract } from "../utils/contract";
 import { useAccount } from "wagmi";
@@ -178,7 +177,6 @@ export default function Home() {
           <h1 className="text-2xl font-bold text-base-blue">
             <span className="text-base-purple">Based</span>Poll
           </h1>
-          <WalletConnect />
         </div>
       </header>
 
