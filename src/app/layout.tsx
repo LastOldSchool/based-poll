@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Based Poll",
+  title: "Superchain Poll",
   description: "A decentralized poll application on Base chain",
 };
 
