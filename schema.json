@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string",
+      "description": "The poll question",
+      "minLength": 1
+    },
+    "options": {
+      "type": "array",
+      "description": "List of available options for the poll",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "Unique identifier for the option",
+            "minimum": 1
+          },
+          "text": {
+            "type": "string",
+            "description": "Text content of the option",
+            "minLength": 1
+          }
+        },
+        "required": ["id", "text"]
+      }
+    },
+    "deadline": {
+      "type": "number",
+      "description": "Unix timestamp for poll deadline",
+      "minimum": 0
+    }
+  },
+  "required": ["question", "options", "deadline"]
+} 
