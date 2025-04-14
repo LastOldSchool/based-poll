@@ -110,11 +110,6 @@ export function importPollFromJson(jsonData: string): StoredPoll {
       throw new Error('Invalid poll data format');
     }
     
-    // Add creation timestamp if missing
-    if (!poll.createdAt) {
-      poll.createdAt = Math.floor(Date.now() / 1000);
-    }
-    
     return poll;
   } catch (error) {
     console.error('Failed to import poll:', error);

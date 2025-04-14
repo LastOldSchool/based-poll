@@ -1,5 +1,5 @@
 {
-  "question": "test?",
+  "question": "Hello! How are you? I am fine. Thank you.",
   "options": [
     {
       "id": 1,
@@ -15,6 +15,5 @@
     }
   ],
   "deadline": 1744871534,
-  "optionCount": 3,
-  "createdAt": 1744275134
+  "optionCount": 3
 } 

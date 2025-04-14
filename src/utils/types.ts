@@ -56,5 +56,4 @@ export interface StoredPoll {
   options: { id: number; text: string }[];
   deadline: number;
   optionCount: number;
-  createdAt: number;
 }
