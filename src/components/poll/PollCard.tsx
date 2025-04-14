@@ -179,8 +179,11 @@ export function PollCard({
   return (
     <>
       <Card className={`w-full max-w-md mx-auto overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 ${className}`}>
-        <CardHeader className="relative">
-          <div className="absolute top-4 right-4 z-10">
+        <CardHeader className="relative pb-2">
+          <div className="flex justify-between items-start">
+            <div className="pr-8">
+              <CardTitle className="text-xl font-bold">{poll.question}</CardTitle>
+            </div>
             <div className="relative" ref={menuRef}>
               <button 
                 className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -220,10 +223,8 @@ export function PollCard({
               )}
             </div>
           </div>
-          
-          <CardTitle className="text-xl font-bold">{poll.question}</CardTitle>
-          <CardDescription>
-            <span className="flex items-center mt-1">
+          <CardDescription className="mt-2">
+            <span className="flex items-center">
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
                 pollHasEnded
                   ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
