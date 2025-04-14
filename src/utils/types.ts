@@ -55,5 +55,4 @@ export interface StoredPoll {
   question: string;
   options: { id: number; text: string }[];
   deadline: number;
-  optionCount: number;
 }

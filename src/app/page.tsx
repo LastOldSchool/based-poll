@@ -64,15 +64,16 @@ export default function Home() {
       
       // Calculate the prePollId and id dynamically
       const prePollId = generatePrePollId(data.question);
+      const optionCount = data.options.length;
       const id = calculatePollId({
         prePollId,
-        optionCount: data.optionCount,
+        optionCount,
         deadline: data.deadline
       });
       
       // Get actual poll data from blockchain
       const blockchainPoll = await pollContract.getPoll(id, true);
-      const voteCounts = blockchainPoll?.voteCounts || Array(data.optionCount).fill(0);
+      const voteCounts = blockchainPoll?.voteCounts || Array(optionCount).fill(0);
       
       // Convert to Poll format
       const pollData: Poll = {
@@ -80,7 +81,7 @@ export default function Home() {
         question: data.question,
         deadline: data.deadline,
         options: data.options,
-        optionCount: data.optionCount,
+        optionCount,
         voteCounts: voteCounts,
         exists: blockchainPoll?.exists || true,
         prePollId

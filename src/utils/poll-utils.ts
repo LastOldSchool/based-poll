@@ -105,8 +105,7 @@ export function importPollFromJson(jsonData: string): StoredPoll {
     
     // Validate required fields
     if (!poll.id || !poll.prePollId || !poll.question || !Array.isArray(poll.options) || 
-        poll.options.length < 2 || typeof poll.deadline !== 'number' || 
-        typeof poll.optionCount !== 'number') {
+        poll.options.length < 2 || typeof poll.deadline !== 'number') {
       throw new Error('Invalid poll data format');
     }
     
